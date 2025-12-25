@@ -14,7 +14,7 @@ cloudinary.config({
 });
 
 // ✅ Common root folder (customize as needed)
-const COMMON_FOLDER = "Frapp";
+const COMMON_FOLDER = "Terralink";
 
 /**
  * Uploads a file buffer to Cloudinary under the common folder.
@@ -51,7 +51,7 @@ const extractPublicId = (url) => {
   // ✅ Robust regex: handles versioned URLs, nested folders, and all file types
   const regex = /upload\/(?:v\d+\/)?(.+?)\.[a-zA-Z0-9]+$/;
   const match = url.match(regex);
-  return match ? match[1] : null; // e.g. "Frapp/profilePic/abcd1234"
+  return match ? match[1] : null; // e.g. "/profilePic/abcd1234"
 };
 
 /**

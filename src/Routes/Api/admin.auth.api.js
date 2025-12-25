@@ -78,8 +78,6 @@ router.route("/get/site-settings").get(authguard, getSiteSettings);
 // get single user
 router.route("/get-user/:userId").get(adminAuthGuard, getSingleuser);
 
-// get user all post
-router.route("/get-user-all-post/:userId").get(adminAuthGuard, getUserAllPost);
 
 // remove user
 router.route("/remove-user/:userId").delete(adminAuthGuard, adminDeleteUser);

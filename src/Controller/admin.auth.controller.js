@@ -10,12 +10,8 @@ const {
 const { Admin } = require("../Schema/admin.schema");
 const { companyAddressModel } = require("../Schema/company.address.schema");
 const { dynamicPageModel } = require("../Schema/dynamic.page.schema");
-const { Post } = require("../Schema/post.schema");
-const { report } = require("../Schema/report.post.schem");
 const { siteSettingModel } = require("../Schema/site.settings.schema");
-const { socailSiteModel } = require("../Schema/social.media.schema");
 const { user } = require("../Schema/user.schema");
-
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");

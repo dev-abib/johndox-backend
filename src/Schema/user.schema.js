@@ -44,17 +44,24 @@ const userSchema = new Schema(
     },
     refreshToken: {
       type: String,
-      default:null
+      default: null,
     },
     resetToken: {
       type: String,
-      default:null
+      default: null,
     },
     profilePicture: {
       type: String,
       default: null,
     },
-   
+    phoneNumber: {
+      type: String,
+      default: null,
+    },
+    termsAndConditions: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

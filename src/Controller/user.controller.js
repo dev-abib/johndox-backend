@@ -13,8 +13,6 @@ const {
   deleteCloudinaryAsset,
 } = require("../Helpers/uploadCloudinary");
 const { Admin } = require("../Schema/admin.schema");
-const { Post } = require("../Schema/post.schema");
-const { report } = require("../Schema/report.post.schem");
 const { user } = require("../Schema/user.schema");
 
 const { apiError } = require("../Utils/api.error");
@@ -24,12 +22,46 @@ const { emailChecker, passwordChecker } = require("../Utils/check");
 
 // register user controller
 const registerUserController = asyncHandler(async (req, res, next) => {
-  const { fullName, email, role, password, confirmPassword } = req.body;
+  const {
+    firstName,
+    lastName,
+    email,
+    role,
+    password,
+    confirmPassword,
+    termsAndConditions,
+  } = req.body;
+
+  const roles = ["buyer", "seller"];
+
+  if (!firstName) {
+    if (!email) return next(new apiError(400, "First name field is required"));
+  }
+
+  if (!lastName) {
+    return next(new apiError(400, "Last name field is required"));
+  }
+
+  if (!role) return next(new apiError(400, "Role field is required"));
+
+  if (!roles.includes(role)) {
+    return next(new apiError(400, "Invalid role value"));
+  }
 
   if (!email) return next(new apiError(400, "Email field is required"));
 
   if (!emailChecker(email))
     return next(new apiError(400, "Invalid Email format"));
+
+  if (!termsAndConditions) {
+    return next(new apiError(400, "Terms and conditions field is required"));
+  }
+
+  if (String(termsAndConditions).toLowerCase() !== "true") {
+    return next(
+      new apiError(400, "You must have to agree with the terms and conditions")
+    );
+  }
 
   if (!password) return next(new apiError(400, "Password field is required"));
 
@@ -63,9 +95,11 @@ const registerUserController = asyncHandler(async (req, res, next) => {
   let savedUser = null;
 
   const newUser = new user({
-    fullName,
+    firstName,
+    lastName,
     email,
     role,
+    termsAndConditions,
     password: hashedPassword,
   });
 
@@ -77,7 +111,7 @@ const registerUserController = asyncHandler(async (req, res, next) => {
     );
 
   const token = await createSessionToken({
-    name: savedUser.name,
+    name: savedUser.firstName,
     email: savedUser.email,
     userId: savedUser._id,
     role: savedUser.role,
@@ -87,7 +121,7 @@ const registerUserController = asyncHandler(async (req, res, next) => {
     await user.findByIdAndUpdate(savedUser._id, { refreshToken: token });
 
   const responseData = {
-    name: savedUser.name,
+    name: savedUser.firstName,
     email: savedUser.email,
     role: savedUser.role,
   };
@@ -100,7 +134,7 @@ const registerUserController = asyncHandler(async (req, res, next) => {
 
   const isMailSend = await mailSender({
     type: "verify-account",
-    name: savedUser.fullName || "User",
+    name: savedUser.firstName || "User",
     emailAdress: email,
     subject: "Your One-Time Password (OTP)",
     otp,
@@ -201,7 +235,7 @@ const loginUserController = asyncHandler(async (req, res, next) => {
   }
 
   const data = {
-    name: isExistingUser.fullName,
+    name: isExistingUser.firstName,
     email: isExistingUser.email,
     userId: isExistingUser._id,
     role: isExistingUser.role,
@@ -212,7 +246,7 @@ const loginUserController = asyncHandler(async (req, res, next) => {
   await isExistingUser.save();
 
   const responseData = {
-    name: isExistingUser.fullName,
+    name: isExistingUser.firstName,
     email: isExistingUser.email,
     role: isExistingUser.role,
     token: token,
@@ -236,33 +270,16 @@ const getUserData = asyncHandler(async (req, res, next) => {
   if (!isExistingUser)
     return next(new apiError(404, "User not found", null, false));
 
-  // Fetch all posts (events) created by the user
-  const posts = await Post.find({ author: decodedData.userData.userId });
-
-  // Calculate the sum of ratings for the posts
-  let totalRatings = 0;
-  let totalRatingsCount = 0;
-
-  posts.forEach((post) => {
-    totalRatingsCount += post.ratingInfo.length;
-    totalRatings += post.ratingInfo.reduce(
-      (ratingSum, ratingObj) => ratingSum + parseFloat(ratingObj.rating), // Use parseFloat here for decimals
-      0
-    );
-  });
-
-  // Calculate the average rating
-  let averageRating = 0;
-  if (totalRatingsCount > 0) {
-    averageRating = totalRatings / totalRatingsCount; // This will give you a decimal result
-  }
-
-  // Update the creator rating on the user document
-  isExistingUser.creator_rating = averageRating;
-  await isExistingUser.save();
-
-  const { password, resetToken, refreshToken, ...safeUserData } =
-    isExistingUser.toObject();
+  const {
+    password,
+    resetToken,
+    refreshToken,
+    updatedAt,
+    createdAt,
+    otpExpiresAt,
+    otp,
+    ...safeUserData
+  } = isExistingUser.toObject();
 
   return res
     .status(200)
@@ -270,7 +287,7 @@ const getUserData = asyncHandler(async (req, res, next) => {
       new apiSuccess(
         200,
         "Successfully retrieved user",
-        { ...safeUserData, creator_rating: isExistingUser.creator_rating },
+        safeUserData,
         true,
         null
       )
@@ -344,7 +361,7 @@ const verifyEmail = asyncHandler(async (req, res, next) => {
   try {
     await mailSender({
       type: "otp",
-      name: isExisteduser.fullName || "User",
+      name: isExisteduser.firstName || "User",
       emailAdress: email,
       subject: "Your One-Time Password (OTP)",
       otp,
@@ -374,7 +391,6 @@ const resendOtp = asyncHandler(async (req, res, next) => {
   if (!isExisteduser)
     return next(new apiError(404, "User not found", null, false));
 
-  // check if OTP was sent recently (optional rate limit)
   if (
     isExisteduser.otpExpiresAt &&
     new Date() < new Date(isExisteduser.otpExpiresAt)
@@ -404,7 +420,7 @@ const resendOtp = asyncHandler(async (req, res, next) => {
   try {
     await mailSender({
       type: "otp",
-      name: isExisteduser.fullName || "User",
+      name: isExisteduser.firstName || "User",
       emailAdress: email,
       subject: "Your New One-Time Password (OTP)",
       otp,
@@ -446,7 +462,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "OTP expired", null, false));
 
   const token = await createSessionToken({
-    name: isExisteduser.fullName,
+    name: isExisteduser.firstName,
     email: isExisteduser.email,
   });
 
@@ -511,24 +527,25 @@ const updateUser = asyncHandler(async (req, res, next) => {
   if (!isExisteduser)
     return next(new apiError(404, "User not found", null, false));
 
-  const { fullName } = req.body;
+  const { firstName, lastName, phoneNumber } = req.body;
   const profilePicture = req.file;
-
-  if (fullName) isExisteduser.fullName = fullName.trim();
 
   if (profilePicture) {
     try {
+      // Delete old profile picture from Cloudinary
       if (isExisteduser.profilePicture) {
         let isDeleted = await deleteCloudinaryAsset(
           isExisteduser.profilePicture
         );
+        if (!isDeleted) {
+          return next(new apiError(500, "Error deleting old profile picture"));
+        }
       }
 
       const uploadResult = await uploadCloudinary(
         profilePicture.buffer,
         "profilePic"
       );
-
       if (!uploadResult?.secure_url) {
         return next(new apiError(500, "Profile picture upload failed"));
       }
@@ -540,6 +557,10 @@ const updateUser = asyncHandler(async (req, res, next) => {
     }
   }
 
+  if (firstName) isExisteduser.firstName = firstName;
+  if (lastName) isExisteduser.lastName = lastName;
+  if (phoneNumber) isExisteduser.phoneNumber = phoneNumber;
+
   const updatedUser = await isExisteduser.save();
 
   return res.status(200).json(
@@ -547,9 +568,11 @@ const updateUser = asyncHandler(async (req, res, next) => {
       200,
       "User updated successfully",
       {
-        fullName: updatedUser.fullName,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
         email: updatedUser.email,
-        profilePic: updatedUser.profilePic,
+        profilePicture: updatedUser.profilePicture,
+        phoneNumber: updatedUser.phoneNumber,
       },
       true
     )
@@ -569,28 +592,6 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
     if (isExistedUser.profilePicture) {
       await deleteCloudinaryAsset(isExistedUser.profilePicture);
     }
-
-    const userPosts = await Post.find({ author: userId });
-    for (const post of userPosts) {
-      // Delete post images from Cloudinary
-      if (post.images && post.images.length > 0) {
-        for (const img of post.images) {
-          await deleteCloudinaryAsset(img);
-        }
-      }
-      await Post.findByIdAndDelete(post._id);
-    }
-
-    await Post.updateMany(
-      {},
-      {
-        $pull: {
-          likes: userId,
-          savedBy: userId,
-          "ratingInfo.user": userId,
-        },
-      }
-    );
 
     await user.findByIdAndDelete(userId);
 
@@ -658,70 +659,6 @@ const getSingleuser = asyncHandler(async (req, res, next) => {
     );
 });
 
-// get sinlge user all post
-const getUserAllPost = asyncHandler(async (req, res, next) => {
-  const { userId } = req.params;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  // Check if user exists
-  const isExistedUser = await user.findById(userId);
-  if (!isExistedUser) {
-    return next(
-      new apiError(404, "This account didn't exist or removed", null, false)
-    );
-  }
-
-  // Fetch paginated posts
-  const posts = await Post.find({ author: userId })
-    .skip(skip)
-    .limit(limit)
-    .sort({ createdAt: -1 })
-    .lean(); // lean() to get plain JS objects
-
-  // Fetch report info for each post
-  const postIds = posts.map((post) => post._id);
-  const reports = await report.aggregate([
-    { $match: { postId: { $in: postIds } } },
-    { $group: { _id: "$postId", reportCount: { $sum: 1 } } },
-  ]);
-
-  // Map report counts to posts
-  const reportMap = {};
-  reports.forEach((r) => {
-    reportMap[r._id.toString()] = r.reportCount;
-  });
-
-  const postsWithReports = posts.map((post) => ({
-    ...post,
-    reportCount: reportMap[post._id.toString()] || 0,
-    isReported: (reportMap[post._id.toString()] || 0) > 0,
-  }));
-
-  const totalPosts = await Post.countDocuments({ author: userId });
-  const totalPages = Math.ceil(totalPosts / limit);
-
-  return res.status(200).json(
-    new apiSuccess(
-      200,
-      "Successfully retrieved user posts",
-      {
-        posts: postsWithReports,
-        pagination: {
-          totalPosts,
-          totalPages,
-          currentPage: page,
-          pageSize: limit,
-        },
-      },
-      false
-    )
-  );
-});
-
-
-
 module.exports = {
   registerUserController,
   loginUserController,
@@ -736,6 +673,4 @@ module.exports = {
   verifyAccount,
   resendOtp,
   getSingleuser,
-  getUserAllPost,
 };
-

@@ -13,7 +13,7 @@ const {
   logoutUser,
   verifyAccount,
   resendOtp,
-  getSingleuser,
+
 } = require("../../Controller/user.controller");
 const { uploadImages } = require("../../middleware/multer.middleware");
 const { authguard } = require("../../middleware/authGuard");
