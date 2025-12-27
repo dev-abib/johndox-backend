@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socket.io Redis Test</title>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>Socket.io Redis Test</h1>
+  <p id="status"></p>
+
+  <script>
+    const socket = io('http://localhost:3000'); // Adjust if needed
+
+    socket.on('connect', () => {
+      document.getElementById('status').innerHTML = `Connected: ${socket.id}`;
+    });
+
+    socket.on('user-status-change', (data) => {
+      console.log(data); // Check status changes in the console
+    });
+
+    // Test sending events
+    socket.emit('ping', { msg: 'Hello, server!' });
+  </script>
+</body>
+</html>

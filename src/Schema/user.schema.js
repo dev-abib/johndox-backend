@@ -62,6 +62,21 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+    lastSeen: {
+      type: Number,
+      default:null
+    },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    socketId: {
+      type: String,
+      default: null,
+    },
+    sessionDuration: {
+      type: String,
+    },
   },
   {
     timestamps: true,
