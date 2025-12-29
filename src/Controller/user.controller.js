@@ -35,7 +35,7 @@ const registerUserController = asyncHandler(async (req, res, next) => {
   const roles = ["buyer", "seller"];
 
   if (!firstName) {
-    if (!email) return next(new apiError(400, "First name field is required"));
+     return next(new apiError(400, "First name field is required"));
   }
 
   if (!lastName) {
@@ -174,7 +174,6 @@ const verifyAccount = asyncHandler(async (req, res, next) => {
   if (!isExisteduser)
     return next(new apiError(404, "User not found", null, false));
 
-  console.log(otp, isExisteduser.otp, "thsiis the ot");
 
   if (isExisteduser.otp !== otp)
     return next(new apiError(400, "Invalid OTP", null, false));
@@ -242,7 +241,7 @@ const loginUserController = asyncHandler(async (req, res, next) => {
   };
 
   const token = await createSessionToken(data);
-  isExistingUser.token = token;
+  isExistingUser.refreshToken = token;
   await isExistingUser.save();
 
   const responseData = {

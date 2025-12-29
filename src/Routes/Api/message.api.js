@@ -1,19 +1,23 @@
 // external dependencies
 const express = require("express");
-const {
-  registerUserController,
-  
-} = require("../../Controller/user.controller");
+const { registerUserController } = require("../../Controller/user.controller");
 const { uploadImages } = require("../../middleware/multer.middleware");
 const { authguard } = require("../../middleware/authGuard");
+const {
+  sendMessages,
+  getMessage,
+} = require("../../Controller/message.controller");
 
 // extracting router from express
 const { Router } = express;
 const router = Router();
 
-//  register user
+//  send message
 router
-  .route("/register")
-  .post(uploadImages.single("profilePicture"), registerUserController);
+  .route("/send-message/:senderId/:receiverId")
+  .post(authguard, sendMessages);
+
+//  get message
+router.route("/get-message/:senderId/:receiverId").get(authguard, getMessage);
 
 module.exports = router;

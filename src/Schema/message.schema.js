@@ -8,7 +8,7 @@ const messageSchema = new Schema(
       type: mongoose.Schema.ObjectId,
       ref: "user",
     },
-    reciverId: {
+    receiverId: {
       type: mongoose.Schema.ObjectId,
       ref: "user",
     },
@@ -23,14 +23,19 @@ const messageSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    status: {
+      type: String,
+      enum: ["pending", "delivered"],
+      default: "pending",
+    },
   },
   {
     timestamps: true,
   }
 );
 
-const message = models.message || model("message", userSchema);
+const Message = models.message || model("message", messageSchema);
 
 module.exports = {
-  message,
+  Message,
 };

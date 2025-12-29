@@ -64,7 +64,7 @@ const userSchema = new Schema(
     },
     lastSeen: {
       type: Number,
-      default:null
+      default: null,
     },
     isOnline: {
       type: Boolean,
@@ -76,6 +76,10 @@ const userSchema = new Schema(
     },
     sessionDuration: {
       type: String,
+    },
+    rating: {
+      type: String,
+      default: null,
     },
   },
   {
