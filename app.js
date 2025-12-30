@@ -5,16 +5,16 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const bodyParser = require("body-parser");
 const http = require("http");
-const socketIo = require("socket.io");
-const redisAdapter = require("socket.io-redis");
+const { initSocket } = require("./src/Utils/socket.js"); // Import initSocket
 
-const allRoutes = require("./src/Routes/index.js"); 
+const allRoutes = require("./src/Routes/index.js");
+const { user } = require("./src/Schema/user.schema.js");
+const { Message } = require("./src/Schema/message.schema.js");
+
+
+
 const app = express();
 const PORT = process.env.PORT || 8000;
-const initSocket = require("./src/socket.js"); 
-const { setIo } = require("./src/Utils/socketInstance.js");
-
-
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -29,13 +29,15 @@ app.use(
   })
 );
 
+// Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
   message: "Too many requests from this IP, please try again later.",
 });
 app.use(limiter);
 
+// Static files
 app.use("/public", express.static("public"));
 
 app.use(allRoutes);
@@ -50,21 +52,13 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Create HTTP server for socket.io
 const server = http.createServer(app);
 
-const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-});
+// Initialize Socket.IO
+initSocket(server);
 
-io.adapter(redisAdapter({ host: "127.0.0.1", port: 6379 }));
-
-setIo(io); 
-initSocket(io);
-
+// Start server
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server listening on port: http://localhost:${PORT}`);
 });

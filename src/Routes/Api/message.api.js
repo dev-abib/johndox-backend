@@ -13,11 +13,9 @@ const { Router } = express;
 const router = Router();
 
 //  send message
-router
-  .route("/send-message/:senderId/:receiverId")
-  .post(authguard, sendMessages);
+router.route("/send-message/:senderId/:receiverId").post(sendMessages);
 
 //  get message
-router.route("/get-message/:senderId/:receiverId").get(authguard, getMessage);
+router.route("/get-message/:senderId/:receiverId").get(getMessage);
 
 module.exports = router;

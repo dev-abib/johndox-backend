@@ -8,7 +8,7 @@ const authguard = asyncHandler(async (req, res, next) => {
   const token = authorization?.split("Bearer ")[1];
   const cookiesToken = cookie
     ?.split("; ")
-    .find((c) => c.startsWith("access_token="))
+    .find((c) => c.startsWith("access_token=" || "token" ))
     ?.split("=")[1];
 
   if (!token && !cookiesToken) {

@@ -4,236 +4,200 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Real-Time Chat</title>
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
+      /* Simple Styling for Chat */
       body {
         font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 20px;
-        background-color: #f4f4f4;
+        margin: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        overflow: hidden;
+
+      #chat {
+        width: 80%;
+        max-width: 600px;
+        margin-top: 20px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
       }
-      h1 {
-        text-align: center;
-        padding: 20px;
-        margin: 0;
-        background: #007bff;
-        color: white;
+
+      #messages {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        padding: 10px;
+        background-color: #fff;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        margin-bottom: 15px;
       }
-      .input-container {
-        padding: 20px;
-        background: #f9f9f9;
-        border-bottom: 1px solid #ddd;
-      }
-      label {
-        display: block;
+
+      .message {
         margin-bottom: 8px;
+        padding: 8px;
+        background-color: #e1f5fe;
+        border-radius: 6px;
+      }
+
+      .message .sender {
         font-weight: bold;
       }
-      input {
-        width: 100%;
-        padding: 12px;
-        margin-bottom: 15px;
+
+      input[type="text"] {
+        width: 80%;
+        padding: 8px;
+        margin-right: 10px;
         border: 1px solid #ccc;
-        border-radius: 6px;
-        font-size: 16px;
-        box-sizing: border-box;
+        border-radius: 4px;
       }
+
       button {
-        width: 100%;
-        padding: 14px;
-        background: #007bff;
+        padding: 8px 15px;
+        background-color: #007bff;
         color: white;
         border: none;
-        border-radius: 6px;
-        font-size: 18px;
+        border-radius: 4px;
         cursor: pointer;
       }
+
       button:hover {
-        background: #0056b3;
+        background-color: #0056b3;
       }
-      #messages {
-        list-style: none;
-        padding: 20px;
-        margin: 0;
-        height: 500px;
-        overflow-y: auto;
-        background: #fff;
+
+      #onlineUsers {
+        margin-top: 20px;
+        max-width: 600px;
+        width: 100%;
       }
-      #messages li {
-        padding: 14px 18px;
-        margin-bottom: 12px;
-        border-radius: 18px;
-        max-width: 75%;
-        word-wrap: break-word;
-        clear: both;
+
+      #onlineUserList li {
+        list-style-type: none;
+        padding: 5px;
+        background-color: #cfe2f3;
+        margin-bottom: 5px;
+        border-radius: 4px;
+        cursor: pointer;
       }
-      #messages li.own {
-        background: #007bff;
+
+      #onlineUserList li:hover {
+        background-color: #007bff;
         color: white;
-        margin-left: auto;
-        float: right;
-      }
-      #messages li.other {
-        background: #e9ecef;
-        color: black;
-        margin-right: auto;
-        float: left;
-      }
-      .time {
-        font-size: 0.75em;
-        opacity: 0.8;
-        margin-top: 6px;
-        display: block;
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <h1>Real-Time Chat</h1>
+    <h1>Real-Time Chat</h1>
 
-      <div class="input-container">
-        <label for="receiverId">Receiver ID</label>
-        <input type="text" id="receiverId" placeholder="Enter receiver's user ID" />
-
-        <label for="message">Your Message</label>
-        <input type="text" id="message" placeholder="Type a message..." autocomplete="off" />
-
-        <button id="sendBtn">Send Message</button>
-      </div>
-
-      <ul id="messages"></ul>
+    <!-- Online Users Section -->
+    <div id="onlineUsers">
+      <h3>Online Users:</h3>
+      <ul id="onlineUserList"></ul>
     </div>
 
-    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <!-- Chat Box -->
+    <div id="chat">
+      <h3>Chat with: <span id="chatPartner"></span></h3>
+      <div id="messages"></div>
+      <input type="text" id="messageInput" placeholder="Type your message..." />
+      <button id="sendMessageButton">Send</button>
+    </div>
+
     <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        const token = localStorage.getItem("token");
-        const userId = localStorage.getItem("userId");
+      // Socket.IO connection
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+      const socket = io("http://localhost:3000", {
+        query: { token: token },
+      });
 
-        if (!token || !userId) {
-          alert("Please log in first!");
-          return;
-        }
+      const sendMessageButton = document.getElementById("sendMessageButton");
+      const messageInput = document.getElementById("messageInput");
+      const onlineUserList = document.getElementById("onlineUserList");
+      const messagesContainer = document.getElementById("messages");
+      const chatPartnerElement = document.getElementById("chatPartner");
+      let currentReceiverId = null;
 
-        const socket = io("http://localhost:3000", { query: { token } });
-
-        const messagesList = document.getElementById("messages");
-        const messageInput = document.getElementById("message");
-        const receiverInput = document.getElementById("receiverId");
-        const sendBtn = document.getElementById("sendBtn");
-
-        let currentReceiverId = null;
-
-        function addMessage(msg) {
-          const li = document.createElement("li");
-
-          let displayName = msg.senderName || "User";
-
-          if (!msg.senderName) {
-            if (typeof msg.senderId === "object") {
-              displayName = msg.senderId.firstName || msg.senderId.name || msg.senderId.email || "User";
-            } else if (typeof msg.senderId === "string") {
-              displayName = msg.senderId.substring(0, 8);
-            }
-          }
-
-          const senderIdStr = typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
-
-          const time = new Date(msg.createdAt || msg.timestamp || Date.now())
-            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-          li.innerHTML = `
-            <strong>${displayName}</strong><br>
-            ${msg.message || "(no text)"}<br>
-            <span class="time">${time}</span>
-          `;
-
-          if (senderIdStr === userId) {
-            li.classList.add("own");
-          } else {
-            li.classList.add("other");
-          }
-
-          messagesList.appendChild(li);
-          messagesList.scrollTop = messagesList.scrollHeight;
-        }
-
-        socket.on("receive-message", (msg) => {
-          console.log("REAL-TIME MESSAGE ARRIVED:", msg); // ← Check this in console!
-          addMessage(msg);
-        });
-
-        sendBtn.onclick = async () => {
-          const text = messageInput.value.trim();
-          const receiverId = receiverInput.value.trim();
-
-          if (!text || !receiverId) return alert("Fill both fields");
-
-          if (currentReceiverId !== receiverId) {
-            currentReceiverId = receiverId;
-            messagesList.innerHTML = "";
-            await loadHistory(userId, receiverId);
-          }
-
-          try {
-            const res = await fetch(
-              `http://localhost:3000/V1/0.0/send-message/${userId}/${receiverId}`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ message: text }),
-              }
-            );
-
-            const data = await res.json();
-
-            if (data.success) {
-              addMessage({
-                _id: data.data._id,
-                senderId: userId,
-                message: text,
-                createdAt: new Date().toISOString(),
-                senderName: "You",
-              });
-              messageInput.value = "";
-            }
-          } catch (err) {
-            alert("Send failed");
-          }
-        };
-
-        async function loadHistory(sender, receiver) {
-          try {
-            const res = await fetch(
-              `http://localhost:3000/V1/0.0/get-message/${sender}/${receiver}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            const data = await res.json();
-            if (data.success) data.data.forEach(addMessage);
-          } catch (err) {
-            console.error("History load failed:", err);
-          }
-        }
-
-        receiverInput.addEventListener("change", () => {
-          const rid = receiverInput.value.trim();
-          if (rid && currentReceiverId !== rid) {
-            currentReceiverId = rid;
-            messagesList.innerHTML = "";
-            loadHistory(userId, rid);
-          }
+      // Listen for online users
+      socket.on("get-online-users", (onlineUsers) => {
+        onlineUserList.innerHTML = ""; // Clear the list first
+        onlineUsers.forEach((user) => {
+          const userItem = document.createElement("li");
+          userItem.textContent = user; // Display userId (modify as needed)
+          userItem.onclick = () => startChat(user);
+          onlineUserList.appendChild(userItem);
         });
       });
+
+      // Listen for incoming messages
+      socket.on("receive-message", (message) => {
+        if (message.receiverId === currentReceiverId || message.senderId === currentReceiverId) {
+          displayMessage(message);
+        }
+      });
+
+      // Send message on button click
+      sendMessageButton.addEventListener("click", async () => {
+        const message = messageInput.value;
+        if (currentReceiverId && message.trim()) {
+          try {
+            await axios.post(
+              `http://localhost:3000/V1/0.0/send-message/${userId}/${currentReceiverId}`,
+              { message }
+            );
+            messageInput.value = "";
+          } catch (error) {
+            console.error("Error sending message:", error);
+          }
+        }
+      });
+
+      // Start chat with selected user
+      const startChat = (receiverId) => {
+        currentReceiverId = receiverId;
+        chatPartnerElement.textContent = receiverId; // Set the chat partner's ID
+        messagesContainer.innerHTML = ""; // Clear previous messages
+        fetchMessages(receiverId); // Fetch messages for the selected user
+      };
+
+      // Fetch messages from the database for the selected user
+      const fetchMessages = async (receiverId) => {
+        if (!receiverId) return;
+
+        try {
+          const response = await axios.get(
+            `http://localhost:3000/V1/0.0/get-message/${userId}/${receiverId}`
+          );
+          const messages = response.data.data;
+          messages.forEach((message) => {
+            displayMessage(message);
+          });
+        } catch (error) {
+          console.error("Error fetching messages:", error);
+        }
+      };
+
+      // Display message in the UI
+      const displayMessage = (message) => {
+        const messageElement = document.createElement("div");
+        messageElement.classList.add("message");
+
+        const senderName = document.createElement("span");
+        senderName.classList.add("sender");
+        senderName.textContent = `${message.senderName}: `;
+        messageElement.appendChild(senderName);
+
+        const messageContent = document.createElement("span");
+        messageContent.textContent = message.message;
+        messageElement.appendChild(messageContent);
+
+        messagesContainer.appendChild(messageElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      };
     </script>
   </body>
 </html>

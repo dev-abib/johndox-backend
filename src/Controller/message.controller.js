@@ -1,12 +1,12 @@
-// src/Controller/message.controller.js
 const { Message } = require("../Schema/message.schema");
 const { user } = require("../Schema/user.schema");
+const { asyncHandler } = require("../Utils/asyncHandler");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
-const { asyncHandler } = require("../Utils/asyncHandler");
-const { getIo } = require("../Utils/socketInstance");
-const redisClient = require("../Utils/redis");
-const { isUserOnline, getUserSockets } = require("../Utils/users.status");
+const {
+  getSocketInstance,
+  getUserSocketMap,
+} = require("../Utils/socket"); 
 
 const sendMessages = asyncHandler(async (req, res, next) => {
   const { senderId, receiverId } = req.params;
@@ -38,8 +38,6 @@ const sendMessages = asyncHandler(async (req, res, next) => {
 
   const savedMessage = await newMessage.save();
 
-  const io = getIo();
-
   const senderName = sender.firstName || sender.name || "User";
 
   const messageToEmit = {
@@ -53,36 +51,26 @@ const sendMessages = asyncHandler(async (req, res, next) => {
     senderName: senderName,
   };
 
-  // Real-time delivery
-  if (isUserOnline(receiverId)) {
-    getUserSockets(receiverId).forEach((socketId) => {
-      io.to(socketId).emit("receive-message", messageToEmit);
-    });
+  const io = getSocketInstance();
+  const userSocketMap = getUserSocketMap();
+
+  if (userSocketMap[senderId]) {
+    io.to(userSocketMap[senderId]).emit("receive-message", messageToEmit);
   } else {
-    // Offline → use lPush for correct order
-    await redisClient
-      .lPush(receiverId.toString(), JSON.stringify(messageToEmit))
-      .catch(console.error);
+    console.log(`Sender ${senderId} is not connected`);
   }
 
-  // Send to sender too
-  if (isUserOnline(senderId)) {
-    getUserSockets(senderId).forEach((socketId) => {
-      io.to(socketId).emit("receive-message", messageToEmit);
-    });
+  if (userSocketMap[receiverId]) {
+    io.to(userSocketMap[receiverId]).emit("receive-message", messageToEmit);
+  } else {
+    console.log(`Receiver ${receiverId} is not connected`);
   }
 
-  // API response with senderName
   return res.status(200).json(
-    new apiSuccess(
-      200,
-      "Message sent successfully",
-      {
-        ...savedMessage.toObject(),
-        senderName,
-      },
-      true
-    )
+    new apiSuccess(200, "Message sent successfully", {
+      ...savedMessage.toObject(),
+      senderName,
+    })
   );
 });
 
@@ -99,22 +87,16 @@ const getMessage = asyncHandler(async (req, res, next) => {
       { senderId: receiverId, receiverId: senderId },
     ],
   })
-    .populate("senderId", "firstName name") // ← ADD THIS: populate sender info
+    .populate("senderId", "firstName name")
     .sort({ createdAt: 1 });
 
-  // Add senderName to each message for frontend consistency
   const formattedMessages = messages.map((msg) => ({
     ...msg.toObject(),
     senderName: msg.senderId?.firstName || msg.senderId?.name || "User",
   }));
 
   return res.json(
-    new apiSuccess(
-      200,
-      "Messages retrieved successfully",
-      formattedMessages,
-      true
-    )
+    new apiSuccess(200, "Messages retrieved successfully", formattedMessages)
   );
 });
 
