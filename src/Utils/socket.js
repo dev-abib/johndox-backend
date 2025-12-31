@@ -67,7 +67,7 @@ const initSocket = (server) => {
               await Message.findByIdAndUpdate(messageId, {
                 status: "delivered",
               });
-              io.to(senderSocketId).emit("message-delivered", messageId); // Emit delivered event
+              io.to(senderSocketId).emit("message-delivered", messageId); 
             }
           }
         } catch (error) {
