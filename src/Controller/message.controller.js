@@ -3,10 +3,8 @@ const { user } = require("../Schema/user.schema");
 const { asyncHandler } = require("../Utils/asyncHandler");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
-const {
-  getSocketInstance,
-  getUserSocketMap,
-} = require("../Utils/socket"); 
+const { getSocketInstance, getUserSocketMap } = require("../Utils/socket");
+const redis = require("../Utils/redis");
 
 const sendMessages = asyncHandler(async (req, res, next) => {
   const { senderId, receiverId } = req.params;
@@ -37,7 +35,6 @@ const sendMessages = asyncHandler(async (req, res, next) => {
   });
 
   const savedMessage = await newMessage.save();
-
   const senderName = sender.firstName || sender.name || "User";
 
   const messageToEmit = {
@@ -54,24 +51,23 @@ const sendMessages = asyncHandler(async (req, res, next) => {
   const io = getSocketInstance();
   const userSocketMap = getUserSocketMap();
 
-  if (userSocketMap[senderId]) {
-    io.to(userSocketMap[senderId]).emit("receive-message", messageToEmit);
-  } else {
-    console.log(`Sender ${senderId} is not connected`);
-  }
-
   if (userSocketMap[receiverId]) {
     io.to(userSocketMap[receiverId]).emit("receive-message", messageToEmit);
+    await Message.findByIdAndUpdate(savedMessage._id, { status: "delivered" });
   } else {
-    console.log(`Receiver ${receiverId} is not connected`);
+    redis.lpush(
+      `user:${receiverId}:offlineMessages`,
+      JSON.stringify(messageToEmit)
+    );
   }
 
-  return res.status(200).json(
-    new apiSuccess(200, "Message sent successfully", {
-      ...savedMessage.toObject(),
-      senderName,
-    })
-  );
+  if (userSocketMap[senderId]) {
+    io.to(userSocketMap[senderId]).emit("receive-message", messageToEmit);
+  }
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Message sent successfully", savedMessage));
 });
 
 const getMessage = asyncHandler(async (req, res, next) => {
@@ -90,13 +86,8 @@ const getMessage = asyncHandler(async (req, res, next) => {
     .populate("senderId", "firstName name")
     .sort({ createdAt: 1 });
 
-  const formattedMessages = messages.map((msg) => ({
-    ...msg.toObject(),
-    senderName: msg.senderId?.firstName || msg.senderId?.name || "User",
-  }));
-
   return res.json(
-    new apiSuccess(200, "Messages retrieved successfully", formattedMessages)
+    new apiSuccess(200, "Messages retrieved successfully", messages)
   );
 });
 

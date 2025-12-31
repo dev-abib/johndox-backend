@@ -7,7 +7,6 @@
     <script src="http://localhost:3000/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-      /* Simple Styling for Chat */
       body {
         font-family: Arial, sans-serif;
         margin: 20px;
@@ -42,10 +41,35 @@
         padding: 8px;
         background-color: #e1f5fe;
         border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .message.sent {
+        background-color: #d1c4e9;
+        align-self: flex-end;
+      }
+
+      .message.received {
+        background-color: #e1f5fe;
+        align-self: flex-start;
       }
 
       .message .sender {
         font-weight: bold;
+      }
+
+      .message .status {
+        font-size: 0.8em;
+        color: grey;
+      }
+
+      .message .delivered {
+        color: green;
+      }
+
+      .message .seen {
+        color: blue;
       }
 
       input[type="text"] {
@@ -88,6 +112,13 @@
         background-color: #007bff;
         color: white;
       }
+
+      #typingIndicator {
+        font-style: italic;
+        color: grey;
+        margin-top: 10px;
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -105,29 +136,29 @@
       <div id="messages"></div>
       <input type="text" id="messageInput" placeholder="Type your message..." />
       <button id="sendMessageButton">Send</button>
+      <div id="typingIndicator">Typing...</div>
     </div>
 
     <script>
-      // Socket.IO connection
       const token = localStorage.getItem("token");
       const userId = localStorage.getItem("userId");
-      const socket = io("http://localhost:3000", {
-        query: { token: token },
-      });
+      const socket = io("http://localhost:3000", { query: { token: token } });
 
       const sendMessageButton = document.getElementById("sendMessageButton");
       const messageInput = document.getElementById("messageInput");
       const onlineUserList = document.getElementById("onlineUserList");
       const messagesContainer = document.getElementById("messages");
       const chatPartnerElement = document.getElementById("chatPartner");
+      const typingIndicator = document.getElementById("typingIndicator");
+
       let currentReceiverId = null;
 
       // Listen for online users
       socket.on("get-online-users", (onlineUsers) => {
-        onlineUserList.innerHTML = ""; // Clear the list first
+        onlineUserList.innerHTML = "";
         onlineUsers.forEach((user) => {
           const userItem = document.createElement("li");
-          userItem.textContent = user; // Display userId (modify as needed)
+          userItem.textContent = user;
           userItem.onclick = () => startChat(user);
           onlineUserList.appendChild(userItem);
         });
@@ -135,8 +166,39 @@
 
       // Listen for incoming messages
       socket.on("receive-message", (message) => {
-        if (message.receiverId === currentReceiverId || message.senderId === currentReceiverId) {
+        if (
+          message.receiverId === currentReceiverId ||
+          message.senderId === currentReceiverId
+        ) {
           displayMessage(message);
+          socket.emit("message-read", message._id); // Emit read status after receiving
+        }
+      });
+
+      // Typing indicator
+      socket.on("typing", (data) => {
+        if (data.receiverId === currentReceiverId) {
+          typingIndicator.style.display = "block";
+        }
+      });
+
+      // Handle message delivered
+      socket.on("message-delivered", (messageId) => {
+        const messageElement = document.getElementById(`message_${messageId}`);
+        if (messageElement) {
+          const status = messageElement.querySelector(".status");
+          status.textContent = "Delivered";
+          status.classList.add("delivered");
+        }
+      });
+
+      // Handle message read
+      socket.on("message-read", (messageId) => {
+        const messageElement = document.getElementById(`message_${messageId}`);
+        if (messageElement) {
+          const status = messageElement.querySelector(".status");
+          status.textContent = "Seen";
+          status.classList.add("seen");
         }
       });
 
@@ -150,18 +212,31 @@
               { message }
             );
             messageInput.value = "";
+            typingIndicator.style.display = "none"; // Hide typing indicator after message sent
           } catch (error) {
             console.error("Error sending message:", error);
           }
         }
       });
 
+      // Emit typing event to the server
+      messageInput.addEventListener("input", () => {
+        if (messageInput.value.trim()) {
+          socket.emit("typing", {
+            senderId: userId,
+            receiverId: currentReceiverId,
+          });
+        } else {
+          typingIndicator.style.display = "none";
+        }
+      });
+
       // Start chat with selected user
       const startChat = (receiverId) => {
         currentReceiverId = receiverId;
-        chatPartnerElement.textContent = receiverId; // Set the chat partner's ID
-        messagesContainer.innerHTML = ""; // Clear previous messages
-        fetchMessages(receiverId); // Fetch messages for the selected user
+        chatPartnerElement.textContent = receiverId;
+        messagesContainer.innerHTML = "";
+        fetchMessages(receiverId);
       };
 
       // Fetch messages from the database for the selected user
@@ -185,16 +260,35 @@
       const displayMessage = (message) => {
         const messageElement = document.createElement("div");
         messageElement.classList.add("message");
+        messageElement.classList.add(
+          message.senderId === userId ? "sent" : "received"
+        );
+        messageElement.id = `message_${message._id}`;
 
         const senderName = document.createElement("span");
         senderName.classList.add("sender");
-        senderName.textContent = `${message.senderName}: `;
+        senderName.textContent = `${
+          message.senderName || message.senderId.firstName
+        }: `;
         messageElement.appendChild(senderName);
 
         const messageContent = document.createElement("span");
+        messageContent.classList.add("message-content");
         messageContent.textContent = message.message;
         messageElement.appendChild(messageContent);
 
+        const status = document.createElement("span");
+        status.classList.add("status");
+
+        if (message.status === "delivered") {
+          status.textContent = "Delivered";
+          status.classList.add("delivered");
+        } else if (message.isRead) {
+          status.textContent = "Seen";
+          status.classList.add("seen");
+        }
+
+        messageElement.appendChild(status);
         messagesContainer.appendChild(messageElement);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       };

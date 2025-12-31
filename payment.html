@@ -1,0 +1,47 @@
+<!-- Add Stripe.js -->
+<script src="https://js.stripe.com/v3/"></script>
+
+<!-- Create the form to collect payment info -->
+<form id="payment-form">
+  <div id="card-element">
+    <!-- A Stripe Element will be inserted here. -->
+  </div>
+  <!-- Used to display form errors. -->
+  <div id="card-errors" role="alert"></div>
+  <button id="submit">Subscribe</button>
+</form>
+
+<script>
+  // Initialize Stripe
+  const stripe = Stripe('YOUR_PUBLISHABLE_KEY'); // Replace with your Stripe public key
+  const elements = stripe.elements();
+  const card = elements.create('card');
+  card.mount('#card-element');
+
+  // Handle form submission
+  const form = document.getElementById('payment-form');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    
+    // Get the client secret from your backend
+    const clientSecret = await fetch('/create-payment-intent', {
+      method: 'POST',
+    }).then((response) => response.json()).then((data) => data.clientSecret);
+
+    // Confirm the payment
+    const {error} = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: card,
+      },
+    });
+
+    if (error) {
+      // Display error message
+      const errorElement = document.getElementById('card-errors');
+      errorElement.textContent = error.message;
+    } else {
+      // Payment successful
+      window.location.href = '/success';  // Redirect to a success page
+    }
+  });
+</script>
