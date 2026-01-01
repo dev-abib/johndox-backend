@@ -2,6 +2,7 @@ const {
   createAdminSessionToken,
   verifyPassword,
   decodeSessionToken,
+  verifyAdminSessionToken,
 } = require("../Helpers/helper");
 const {
   uploadCloudinary,
@@ -140,16 +141,22 @@ const getAllUserData = asyncHandler(async (req, res, next) => {
 
 // verify admin
 const verifyAdmin = asyncHandler(async (req, res, next) => {
-  const decodedData = await decodeSessionToken(req);
+  const bearerRegex = /^Bearer\s+/i;
+  const token = req.headers.authorization;
+
+  const tokenFromAuth = token.replace(bearerRegex, "").trim().replace(/^@/, "");
+  const decodedData = await verifyAdminSessionToken(tokenFromAuth);
+
+  const id = decodedData.decoded.adminData._id;
 
   if (!decodedData)
     return next(new apiError(401, "Unauthorized request", null, false));
 
-  const isExistedAdmin = await Admin.findById(decodedData.adminData._id);
+  const isExistedAdmin = await Admin.findById(id);
 
   if (!isExistedAdmin) {
     return next(new apiError(401, "Unauthorized request", null, false));
-  }
+  }  
 
   const responsePayload = {
     name: isExistedAdmin.name,
@@ -811,7 +818,6 @@ const deletePost = asyncHandler(async (req, res, next) => {
     );
 });
 
-
 // Create a new dynamic page
 const createDynamicPage = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -821,14 +827,18 @@ const createDynamicPage = asyncHandler(async (req, res, next) => {
 
   const { pageTitle, pageDescreption } = req.body;
   if (!pageTitle || !pageDescreption) {
-    return next(new apiError(400, "Title and Description are required", null, false));
+    return next(
+      new apiError(400, "Title and Description are required", null, false)
+    );
   }
 
   const newPage = await dynamicPageModel.create({ pageTitle, pageDescreption });
 
   return res
     .status(201)
-    .json(new apiSuccess(201, "Dynamic page created successfully", newPage, true));
+    .json(
+      new apiSuccess(201, "Dynamic page created successfully", newPage, true)
+    );
 });
 
 // Get all dynamic pages with search, sorting, and pagination
@@ -854,16 +864,21 @@ const getAllDynamicPages = asyncHandler(async (req, res, next) => {
 
   const totalPages = Math.ceil(totalPagesCount / limit);
 
-  return res
-    .status(200)
-    .json(new apiSuccess(200, "Dynamic pages retrieved successfully", {
-      pages,
-      pagination: {
-        totalPages: totalPages,
-        currentPage: page,
-        pageSize: limit,
+  return res.status(200).json(
+    new apiSuccess(
+      200,
+      "Dynamic pages retrieved successfully",
+      {
+        pages,
+        pagination: {
+          totalPages: totalPages,
+          currentPage: page,
+          pageSize: limit,
+        },
       },
-    }, true));
+      true
+    )
+  );
 });
 
 // Get a single dynamic page by ID
@@ -873,7 +888,9 @@ const getDynamicPageById = asyncHandler(async (req, res, next) => {
   if (!page) {
     return next(new apiError(404, "Dynamic page not found", null, false));
   }
-  return res.status(200).json(new apiSuccess(200, "Page retrieved successfully", page, true));
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Page retrieved successfully", page, true));
 });
 
 // Update a dynamic page
@@ -896,7 +913,9 @@ const updateDynamicPage = asyncHandler(async (req, res, next) => {
 
   await page.save();
 
-  return res.status(200).json(new apiSuccess(200, "Dynamic page updated successfully", page, true));
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Dynamic page updated successfully", page, true));
 });
 
 // Delete a dynamic page
@@ -914,7 +933,9 @@ const deleteDynamicPage = asyncHandler(async (req, res, next) => {
 
   await dynamicPageModel.findByIdAndDelete(pageId);
 
-  return res.status(200).json(new apiSuccess(200, "Dynamic page deleted successfully", null, true));
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Dynamic page deleted successfully", null, true));
 });
 
 const getDynamicPageBySlug = asyncHandler(async (req, res, next) => {
@@ -936,9 +957,6 @@ const getDynamicPageBySlug = asyncHandler(async (req, res, next) => {
     .status(200)
     .json(new apiSuccess(200, "Page retrieved successfully", { page }, true));
 });
-
-
-
 
 module.exports = {
   loginAdminController,

@@ -1,7 +1,6 @@
 const bcrypt = require("bcrypt");
 const { Admin } = require("../Schema/admin.schema");
 
-
 const seedDefaultAdmin = async () => {
   try {
     const existingAdmin = await Admin.findOne();
@@ -11,11 +10,11 @@ const seedDefaultAdmin = async () => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash("##AdminPassword123@@", salt);
+    const hashedPassword = await bcrypt.hash("12345678", salt);
 
     const admin = new Admin({
       name: "Default Admin",
-      email: "admin@example.com",
+      email: "admin@admin.com",
       password: hashedPassword,
       isDefault: true,
       role: "admin",

@@ -11,8 +11,6 @@ const allRoutes = require("./src/Routes/index.js");
 const { user } = require("./src/Schema/user.schema.js");
 const { Message } = require("./src/Schema/message.schema.js");
 
-
-
 const app = express();
 const PORT = process.env.PORT || 8000;
 
@@ -21,11 +19,13 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(helmet());
+
+// Update CORS configuration to specify the allowed origin
 app.use(
   cors({
-    origin: "*",
+    origin: "http://localhost:5173", // Replace with the URL of your frontend
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    credentials: true,
+    credentials: true, // Allow credentials (cookies, HTTP authentication, etc.)
   })
 );
 

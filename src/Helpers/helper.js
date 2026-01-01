@@ -43,16 +43,13 @@ const createSessionToken = async (userData) => {
       ? process.env.RESET_SECRET_KEY
       : process.env.SECRET_KEY;
 
-    return jwt.sign(
-      { userData },
-      secretKey,
-      { expiresIn: process.env.EXPIRES_IN } 
-    );
+    return jwt.sign({ userData }, secretKey, {
+      expiresIn: process.env.EXPIRES_IN,
+    });
   } catch (error) {
     console.error("Error generating session token:", error);
   }
 };
-
 
 const createAdminSessionToken = async (adminData) => {
   try {
@@ -63,7 +60,6 @@ const createAdminSessionToken = async (adminData) => {
     console.error("Error generating admin session token:", error);
   }
 };
-
 
 const verifyAdminSessionToken = (token) => {
   try {
@@ -91,7 +87,7 @@ const decodeSessionToken = async (req) => {
     const { cookie, authorization } = req.headers;
 
     let tokenFromAuth = null;
-    let tokenType = "user"; 
+    let tokenType = "user";
 
     if (authorization) {
       const bearerRegex = /^Bearer\s+/i;
@@ -100,7 +96,7 @@ const decodeSessionToken = async (req) => {
           .replace(bearerRegex, "")
           .trim()
           .replace(/^@/, "");
-        
+
         if (authorization.includes("admin")) {
           tokenType = "admin";
         }
@@ -150,16 +146,21 @@ const decodeSessionToken = async (req) => {
         break;
     }
 
+    console.log(
+      token,
+      secret,
+      process.env.ADMIN_SECRET_KEY,
+      "this is the end "
+    );
+
     const verifiedPayload = jwt.verify(token, secret);
 
     return verifiedPayload;
   } catch (error) {
-    console.error("Error verifying session token:", error.message);
+    console.error("Error verifying session token:", error);
     return null;
   }
 };
-
-
 
 const aleaRNGFactory = require("number-generator/lib/aleaRNGFactory");
 
