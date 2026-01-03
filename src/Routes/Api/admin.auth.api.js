@@ -49,9 +49,9 @@ router.route("/get-all-user-data").get(authguard, getAllUserData);
 
 // update admin data
 
-router
-  .route("/update/admin")
-  .put(authguard, uploadImages.single("profilePicture"), updateAdminData);
+// router
+//   .route("/update/admin")
+//   .put(authguard, uploadImages.single("profilePicture"), updateAdminData);
 
 // update admin pass
 router.route("/update/admin-pass").put(authguard, updateAdminPassword);

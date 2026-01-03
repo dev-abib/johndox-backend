@@ -5,7 +5,7 @@ const express = require("express");
 const adminAuthRoutes = require("./Api/admin.auth.api");
 const userAuthRoutes = require("./Api/user.auth.api");
 const messageRoutes = require("./Api/message.api");
-
+const propertyRoutes = require("./Api/property.api");
 
 const { apiError } = require("../Utils/api.error");
 const { asyncHandler } = require("../Utils/asyncHandler");
@@ -25,6 +25,7 @@ router.route(process.env.API_VERSION).get((req, res) => {
 router.use(process.env.API_VERSION, adminAuthRoutes);
 router.use(process.env.API_VERSION, userAuthRoutes);
 router.use(process.env.API_VERSION, messageRoutes);
+router.use(process.env.API_VERSION, propertyRoutes);
 
 router.use(
   process.env.API_VERSION,
