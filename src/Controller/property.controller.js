@@ -4,6 +4,8 @@ const { apiSuccess } = require("../Utils/api.success");
 const { Property } = require("../Schema/property.schema");
 const { uploadCloudinary } = require("../Helpers/uploadCloudinary");
 const { decodeSessionToken } = require("../Helpers/helper");
+const { user } = require("../Schema/user.schema");
+const { mailSender } = require("../Helpers/emailSender");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -235,7 +237,7 @@ const getMyProperty = asyncHandler(async (req, res, next) => {
   );
 });
 
-const getAllproperties = asyncHandler(async (req, res, next) => {
+const getAllProperties = asyncHandler(async (req, res, next) => {
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
   const limit = Math.min(
     Math.max(parseInt(req.query.limit || "10", 10), 1),
@@ -255,7 +257,6 @@ const getAllproperties = asyncHandler(async (req, res, next) => {
       ];
     }
   }
-
 
   if (req.query.propertyType) {
     filter.propertyType = String(req.query.propertyType).trim();
@@ -415,4 +416,87 @@ const getAllproperties = asyncHandler(async (req, res, next) => {
   );
 });
 
-module.exports = { addProperty, getMyProperty, getAllproperties };
+const requestATour = asyncHandler(async (req, res, next) => {
+  const { phoneNumber, message, date, propertyId } = req.body;
+
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  const isExistedBuyer = await user.findById(userId);
+  const isExistedProperty = await Property.findById(propertyId).populate(
+    "author",
+    "firstName email _id"
+  );
+
+  if (!isExistedProperty) {
+    return next(
+      new apiError(
+        401,
+        "Can't find property at the moment, please try again later",
+        null,
+        false
+      )
+    );
+  }
+
+  if (!isExistedBuyer) {
+    return next(
+      new apiError(
+        401,
+        "Can't connect your account , please try again later",
+        null,
+        false
+      )
+    );
+  }
+
+  if (!phoneNumber) {
+    return next(new apiError(400, "Phone number is Required", null, false));
+  }
+
+  if (!message) {
+    return next(new apiError(400, "Message filed is Required", null, false));
+  }
+
+  const authorId = isExistedProperty.author?._id || isExistedProperty.author;
+
+  if (authorId && isExistedBuyer._id.equals(authorId)) {
+    return next(new apiError(400, "You can't message yourself", null, false));
+  }
+
+  const data = {
+    buyerName: isExistedBuyer.firstName,
+    buyerEmail: isExistedBuyer.email,
+    buyerPhone: isExistedBuyer.phoneNumber,
+    date: date,
+    message: message,
+    sellerName: isExistedProperty.author.firstName,
+    email: isExistedProperty.author.email,
+    propertyName: isExistedProperty.propertyName,
+  };
+
+  const isMailSent = await mailSender({
+    type: "request-tour",
+    subject: "A Buyer Wants to Tour Your Property",
+    data,
+    emailAdress: isExistedProperty.author.email,
+  });
+
+  if (!isMailSent) {
+    return next(
+      new apiError(
+        500,
+        "Can't send tour request at the moment, please try again later",
+        null,
+        false
+      )
+    );
+  }
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Successfully sent tour request"));
+});
+
+
+module.exports = { addProperty, getMyProperty, getAllProperties, requestATour };

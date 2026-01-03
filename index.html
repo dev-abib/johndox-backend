@@ -1,297 +1,253 @@
+const RequestTourEmailTemplate = ({ sellerName, propertyName, buyerName,
+buyerEmail, phoneNumber, message, date, }) => { const formattedDate = date ? new
+Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric',
+month: 'long', day: 'numeric' }) : "Not selected"; const mailtoLink =
+`mailto:${encodeURIComponent(buyerEmail || "")}?subject=${encodeURIComponent(
+`Re: Tour request for ${propertyName || "your property"}`
+)}&body=${encodeURIComponent( `Hi ${buyerName || "there"},\n\nThank you for
+requesting a tour of ${propertyName || "the property"}.\n\n` + `Preferred date:
+${formattedDate}\n` + `${phoneNumber ? `Phone: ${phoneNumber}\n` : ""}\n` +
+`I'll follow up shortly to confirm availability.\n\nBest regards,\n${sellerName
+|| "The seller"}` )}`; const cleanPhone = phoneNumber ?
+String(phoneNumber).replace(/\s+/g, "") : ""; return `
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Real-Time Chat</title>
-    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <title>New Tour Request</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
-        margin: 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        margin: 0;
+        padding: 0;
+        background-color: #f9fafb;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        color: #374151;
+        line-height: 1.6;
       }
-
-      #chat {
-        width: 80%;
+      .container {
         max-width: 600px;
-        margin-top: 20px;
-        border: 1px solid #ccc;
-        padding: 10px;
-        background-color: #f9f9f9;
-        border-radius: 8px;
+        margin: 40px auto;
+        background: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
       }
-
-      #messages {
-        max-height: 300px;
-        overflow-y: auto;
-        margin-bottom: 10px;
-        padding: 10px;
-        background-color: #fff;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        margin-bottom: 15px;
+      .header {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        padding: 40px 32px;
+        text-align: center;
       }
-
-      .message {
+      .logo {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 1px;
         margin-bottom: 8px;
-        padding: 8px;
-        background-color: #e1f5fe;
-        border-radius: 6px;
+        opacity: 0.9;
+      }
+      .header-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 12px 0 8px;
+      }
+      .header-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        max-width: 480px;
+        margin: 0 auto;
+      }
+      .content {
+        padding: 40px 32px;
+      }
+      .greeting {
+        font-size: 17px;
+        margin-bottom: 24px;
+        color: #111827;
+      }
+      .property-highlight {
+        background: #eff6ff;
+        border-left: 4px solid #3b82f6;
+        padding: 16px 20px;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1e40af;
+        margin: 24px 0;
+      }
+      .details-grid {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        gap: 16px 20px;
+        background: #f8fafc;
+        padding: 24px;
+        border-radius: 12px;
+        margin: 28px 0;
+        font-size: 15px;
+      }
+      .label {
+        color: #6b7280;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+      }
+      .value {
+        color: #111827;
+        font-weight: 500;
+      }
+      .message-section {
+        margin: 32px 0;
+      }
+      .message-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 12px;
+      }
+      .message-box {
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        font-size: 15px;
+        color: #475569;
+        white-space: pre-wrap;
+        line-height: 1.7;
+      }
+      .actions {
+        margin: 32px 0;
         display: flex;
-        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
       }
-
-      .message.sent {
-        background-color: #d1c4e9;
-        align-self: flex-end;
+      .btn {
+        display: inline-block;
+        padding: 14px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 15px;
+        text-decoration: none;
+        transition: all 0.2s;
       }
-
-      .message.received {
-        background-color: #e1f5fe;
-        align-self: flex-start;
-      }
-
-      .message .sender {
-        font-weight: bold;
-      }
-
-      .message .status {
-        font-size: 0.8em;
-        color: grey;
-      }
-
-      .message .delivered {
-        color: green;
-      }
-
-      .message .seen {
-        color: blue;
-      }
-
-      input[type="text"] {
-        width: 80%;
-        padding: 8px;
-        margin-right: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-      }
-
-      button {
-        padding: 8px 15px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-
-      button:hover {
-        background-color: #0056b3;
-      }
-
-      #onlineUsers {
-        margin-top: 20px;
-        max-width: 600px;
-        width: 100%;
-      }
-
-      #onlineUserList li {
-        list-style-type: none;
-        padding: 5px;
-        background-color: #cfe2f3;
-        margin-bottom: 5px;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-
-      #onlineUserList li:hover {
-        background-color: #007bff;
+      .btn-primary {
+        background: #2563eb;
         color: white;
       }
-
-      #typingIndicator {
-        font-style: italic;
-        color: grey;
-        margin-top: 10px;
-        display: none;
+      .btn-primary:hover {
+        background: #1d4ed8;
+      }
+      .btn-secondary {
+        background: #ffffff;
+        color: #2563eb;
+        border: 2px solid #3b82f6;
+      }
+      .btn-secondary:hover {
+        background: #f0f7ff;
+      }
+      .footer {
+        background: #f1f5f9;
+        padding: 28px 32px;
+        text-align: center;
+        font-size: 13px;
+        color: #64748b;
+      }
+      .footer-note {
+        margin-top: 16px;
+        font-size: 12px;
+        color: #94a3b8;
+      }
+      @media (max-width: 600px) {
+        .container {
+          margin: 20px;
+          border-radius: 12px;
+        }
+        .header {
+          padding: 32px 24px;
+        }
+        .header-title {
+          font-size: 24px;
+        }
+        .content {
+          padding: 32px 24px;
+        }
+        .details-grid {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+        .actions {
+          flex-direction: column;
+        }
+        .btn {
+          text-align: center;
+        }
       }
     </style>
   </head>
   <body>
-    <h1>Real-Time Chat</h1>
+    <div class="container">
+      <div class="header">
+        <div class="logo">Terralink</div>
+        <h1 class="header-title">New Tour Request</h1>
+        <p class="header-subtitle">
+          A buyer is interested in viewing
+          <strong>${propertyName || "your property"}</strong>
+        </p>
+      </div>
 
-    <!-- Online Users Section -->
-    <div id="onlineUsers">
-      <h3>Online Users:</h3>
-      <ul id="onlineUserList"></ul>
+      <div class="content">
+        <p class="greeting">Hi ${sellerName || "there"},</p>
+        <p>
+          Great news! Someone has requested to schedule a tour. Here are the
+          details:
+        </p>
+
+        <div class="property-highlight">
+          ${propertyName || "Property Tour Request"}
+        </div>
+
+        <div class="details-grid">
+          <div class="label">Buyer Name</div>
+          <div class="value">${buyerName || "—"}</div>
+
+          <div class="label">Email</div>
+          <div class="value">${buyerEmail || "—"}</div>
+
+          <div class="label">Phone</div>
+          <div class="value">${phoneNumber || "—"}</div>
+
+          <div class="label">Preferred Date</div>
+          <div class="value">${formattedDate}</div>
+        </div>
+
+        ${message ? `
+        <div class="message-section">
+          <div class="message-title">Buyer's Message</div>
+          <div class="message-box">${message}</div>
+        </div>
+        ` : ''}
+
+        <div class="actions">
+          <a style="color: #fff" href="${mailtoLink}" class="btn btn-primary"
+            >Reply via Email</a
+          >
+          ${phoneNumber ? `<a href="tel:${cleanPhone}" class="btn btn-secondary"
+            >Call Buyer</a
+          >` : ''}
+        </div>
+
+        <p>
+          <strong>Tip:</strong> You can also reply directly from your inbox —
+          we've set the Reply-To address to the buyer's email.
+        </p>
+      </div>
+
+      <div class="footer">
+        This tour request was submitted through your Terralink listing.<br />
+        <span class="footer-note">© 2026 Terralink. All rights reserved.</span>
+      </div>
     </div>
-
-    <!-- Chat Box -->
-    <div id="chat">
-      <h3>Chat with: <span id="chatPartner"></span></h3>
-      <div id="messages"></div>
-      <input type="text" id="messageInput" placeholder="Type your message..." />
-      <button id="sendMessageButton">Send</button>
-      <div id="typingIndicator">Typing...</div>
-    </div>
-
-    <script>
-      const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
-      const socket = io("http://localhost:3000", { query: { token: token } });
-
-      const sendMessageButton = document.getElementById("sendMessageButton");
-      const messageInput = document.getElementById("messageInput");
-      const onlineUserList = document.getElementById("onlineUserList");
-      const messagesContainer = document.getElementById("messages");
-      const chatPartnerElement = document.getElementById("chatPartner");
-      const typingIndicator = document.getElementById("typingIndicator");
-
-      let currentReceiverId = null;
-
-      // Listen for online users
-      socket.on("get-online-users", (onlineUsers) => {
-        onlineUserList.innerHTML = "";
-        onlineUsers.forEach((user) => {
-          const userItem = document.createElement("li");
-          userItem.textContent = user;
-          userItem.onclick = () => startChat(user);
-          onlineUserList.appendChild(userItem);
-        });
-      });
-
-      // Listen for incoming messages
-      socket.on("receive-message", (message) => {
-        if (
-          message.receiverId === currentReceiverId ||
-          message.senderId === currentReceiverId
-        ) {
-          displayMessage(message);
-          socket.emit("message-read", message._id); // Emit read status after receiving
-        }
-      });
-
-      // Typing indicator
-      socket.on("typing", (data) => {
-        if (data.receiverId === currentReceiverId) {
-          typingIndicator.style.display = "block";
-        }
-      });
-
-      // Handle message delivered
-      socket.on("message-delivered", (messageId) => {
-        const messageElement = document.getElementById(`message_${messageId}`);
-        if (messageElement) {
-          const status = messageElement.querySelector(".status");
-          status.textContent = "Delivered";
-          status.classList.add("delivered");
-        }
-      });
-
-      // Handle message read
-      socket.on("message-read", (messageId) => {
-        const messageElement = document.getElementById(`message_${messageId}`);
-        if (messageElement) {
-          const status = messageElement.querySelector(".status");
-          status.textContent = "Seen";
-          status.classList.add("seen");
-        }
-      });
-
-      // Send message on button click
-      sendMessageButton.addEventListener("click", async () => {
-        const message = messageInput.value;
-        if (currentReceiverId && message.trim()) {
-          try {
-            await axios.post(
-              `http://localhost:3000/V1/0.0/send-message/${userId}/${currentReceiverId}`,
-              { message }
-            );
-            messageInput.value = "";
-            typingIndicator.style.display = "none"; // Hide typing indicator after message sent
-          } catch (error) {
-            console.error("Error sending message:", error);
-          }
-        }
-      });
-
-      // Emit typing event to the server
-      messageInput.addEventListener("input", () => {
-        if (messageInput.value.trim()) {
-          socket.emit("typing", {
-            senderId: userId,
-            receiverId: currentReceiverId,
-          });
-        } else {
-          typingIndicator.style.display = "none";
-        }
-      });
-
-      // Start chat with selected user
-      const startChat = (receiverId) => {
-        currentReceiverId = receiverId;
-        chatPartnerElement.textContent = receiverId;
-        messagesContainer.innerHTML = "";
-        fetchMessages(receiverId);
-      };
-
-      // Fetch messages from the database for the selected user
-      const fetchMessages = async (receiverId) => {
-        if (!receiverId) return;
-
-        try {
-          const response = await axios.get(
-            `http://localhost:3000/V1/0.0/get-message/${userId}/${receiverId}`
-          );
-          const messages = response.data.data;
-          messages.forEach((message) => {
-            displayMessage(message);
-          });
-        } catch (error) {
-          console.error("Error fetching messages:", error);
-        }
-      };
-
-      // Display message in the UI
-      const displayMessage = (message) => {
-        const messageElement = document.createElement("div");
-        messageElement.classList.add("message");
-        messageElement.classList.add(
-          message.senderId === userId ? "sent" : "received"
-        );
-        messageElement.id = `message_${message._id}`;
-
-        const senderName = document.createElement("span");
-        senderName.classList.add("sender");
-        senderName.textContent = `${
-          message.senderName || message.senderId.firstName
-        }: `;
-        messageElement.appendChild(senderName);
-
-        const messageContent = document.createElement("span");
-        messageContent.classList.add("message-content");
-        messageContent.textContent = message.message;
-        messageElement.appendChild(messageContent);
-
-        const status = document.createElement("span");
-        status.classList.add("status");
-
-        if (message.status === "delivered") {
-          status.textContent = "Delivered";
-          status.classList.add("delivered");
-        } else if (message.isRead) {
-          status.textContent = "Seen";
-          status.classList.add("seen");
-        }
-
-        messageElement.appendChild(status);
-        messagesContainer.appendChild(messageElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      };
-    </script>
   </body>
 </html>
+`; };

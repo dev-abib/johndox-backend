@@ -1,7 +1,11 @@
 const nodemailer = require("nodemailer");
-const { PasswordResetTemplate, AccountVerificationTemplate } = require("./email.template");
+const {
+  PasswordResetTemplate,
+  AccountVerificationTemplate,
+  RequestTourEmailTemplate,
+} = require("./email.template");
 
-const mailSender = async ({ type, name, emailAdress, subject, otp }) => {
+const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.MAIL_HOST,
@@ -21,6 +25,18 @@ const mailSender = async ({ type, name, emailAdress, subject, otp }) => {
 
     if (type === "verify-account") {
       html = AccountVerificationTemplate(name, otp, emailAdress);
+    }
+
+    if (type === "request-tour") {
+      html = RequestTourEmailTemplate({
+        sellerName: data.sellerName,
+        propertyName: data.propertyName,
+        buyerName: data.buyerName,
+        buyerEmail: data.buyerEmail,
+        phoneNumber: data.buyerPhone,
+        message: data.message,
+        date: data.date,
+      });
     }
 
     const mailOptions = {

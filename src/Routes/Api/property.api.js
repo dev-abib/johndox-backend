@@ -2,7 +2,13 @@ const express = require("express");
 const { authguard } = require("../../middleware/authGuard");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 
-const { addProperty, getMyProperty, getAllproperties } = require("../../Controller/property.controller");
+const {
+  addProperty,
+  getMyProperty,
+  getAllproperties,
+  getAllProperties,
+  requestATour,
+} = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
 const { Router } = express;
@@ -23,6 +29,9 @@ router.route("/add-new-property").post(
 router.route("/my-listings").get(authguard, getMyProperty);
 
 // get all listing
-router.route("/all-listings").get( getAllproperties);
+router.route("/all-listings").get(getAllProperties);
+
+// request a property tour
+router.route("/request-a-tour").post(authguard, requestATour);
 
 module.exports = router;
