@@ -4,6 +4,11 @@ const { model, Schema, models } = mongoose;
 
 const propertySchema = new Schema(
   {
+    author: {
+      type: mongoose.Schema.ObjectId,
+      required: [true, "Author information is required"],
+      ref: "user",
+    },
     propertyName: {
       type: String,
       required: [true, "Property name is required"],
@@ -107,6 +112,10 @@ const propertySchema = new Schema(
       enum: ["residential", "commercial", "industrial", "land"],
       required: [true, "Category is required"],
       index: true,
+    },
+    views: {
+      type: String,
+      default: false,
     },
   },
   { timestamps: true }

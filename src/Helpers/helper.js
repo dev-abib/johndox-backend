@@ -146,13 +146,6 @@ const decodeSessionToken = async (req) => {
         break;
     }
 
-    console.log(
-      token,
-      secret,
-      process.env.ADMIN_SECRET_KEY,
-      "this is the end "
-    );
-
     const verifiedPayload = jwt.verify(token, secret);
 
     return verifiedPayload;
