@@ -83,12 +83,24 @@ const propertySchema = new Schema(
       },
     ],
 
-    media: [
-      {
-        url: { type: String, required: true },
-        fileType: { type: String, enum: ["image", "video"], required: true },
+    media: {
+      type: [
+        {
+          url: { type: String, required: [true, "Media URL is required"] },
+          fileType: {
+            type: String,
+            enum: ["image", "video"],
+            required: [true, "Media fileType is required"],
+          },
+        },
+      ],
+      validate: {
+        validator: function (arr) {
+          return Array.isArray(arr) && arr.length > 0;
+        },
+        message: "At least one media is required",
       },
-    ],
+    },
 
     category: {
       type: String,

@@ -27,7 +27,7 @@ const {
   getDynamicPageBySlug,
 } = require("../../Controller/admin.auth.controller");
 const { authguard } = require("../../middleware/authGuard");
-const { uploadImages } = require("../../middleware/multer.middleware");
+const { uploadMedia } = require("../../middleware/multer.middleware");
 const {
   getSingleuser,
   getUserAllPost,
@@ -49,9 +49,9 @@ router.route("/get-all-user-data").get(authguard, getAllUserData);
 
 // update admin data
 
-// router
-//   .route("/update/admin")
-//   .put(authguard, uploadImages.single("profilePicture"), updateAdminData);
+router
+  .route("/update/admin")
+  .put(authguard, uploadMedia.single("profilePicture"), updateAdminData);
 
 // update admin pass
 router.route("/update/admin-pass").put(authguard, updateAdminPassword);
@@ -77,7 +77,6 @@ router.route("/get/site-settings").get(authguard, getSiteSettings);
 
 // get single user
 router.route("/get-user/:userId").get(adminAuthGuard, getSingleuser);
-
 
 // remove user
 router.route("/remove-user/:userId").delete(adminAuthGuard, adminDeleteUser);
@@ -110,10 +109,11 @@ router.route("/dynamic-pages/:pageId").get(adminAuthGuard, getDynamicPageById);
 router.route("/dynamic-pages/:pageId").put(adminAuthGuard, updateDynamicPage);
 
 // Delete a dynamic page
-router.route("/dynamic-pages/:pageId").delete(adminAuthGuard, deleteDynamicPage);
+router
+  .route("/dynamic-pages/:pageId")
+  .delete(adminAuthGuard, deleteDynamicPage);
 
 // get dynamic content by slug
 router.route("/dynamic-pages/slug/:slug").get(getDynamicPageBySlug);
 
-
-module.exports = router; 
+module.exports = router;

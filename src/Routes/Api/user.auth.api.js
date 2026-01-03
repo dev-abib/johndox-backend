@@ -15,7 +15,7 @@ const {
   resendOtp,
 
 } = require("../../Controller/user.controller");
-const { uploadImages } = require("../../middleware/multer.middleware");
+const {  uploadMedia } = require("../../middleware/multer.middleware");
 const { authguard } = require("../../middleware/authGuard");
 
 
@@ -24,9 +24,9 @@ const { Router } = express;
 const router = Router();
 
 //  register user
-// router
-//   .route("/register")
-//   .post(uploadImages.single("profilePicture"), registerUserController);
+router
+  .route("/register")
+  .post(uploadMedia.single("profilePicture"), registerUserController);
 
 router.route("/verify-acc").put(verifyAccount);
 
@@ -34,9 +34,9 @@ router.route("/verify-acc").put(verifyAccount);
 router.route("/login").post(loginUserController);
 
 // update user
-// router
-//   .route("/update-user")
-//   .put(authguard, uploadImages.single("profilePicture"), updateUser);
+router
+  .route("/update-user")
+  .put(authguard, uploadMedia.single("profilePicture"), updateUser);
 
 // get me
 router.route("/get-me").get(authguard, getUserData);
