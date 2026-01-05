@@ -1,21 +1,23 @@
-// external dependencies
 const express = require("express");
-const { registerUserController } = require("../../Controller/user.controller");
-const { uploadImages } = require("../../middleware/multer.middleware");
 const { authguard } = require("../../middleware/authGuard");
-const {
-  sendMessages,
-  getMessage,
-} = require("../../Controller/message.controller");
+const { chatUpload } = require("../../middleware/chat.upload.middleware");
+const { validateChatMediaSizes } = require("../../middleware/validateChatMediaSizes");
+const { sendChatMessage, getConversations, getChatMessages, markConversationSeen } = require("../../Controller/message.controller");
+const router = express.Router();
 
-// extracting router from express
-const { Router } = express;
-const router = Router();
 
-//  send message
-router.route("/send-message/:senderId/:receiverId").post(sendMessages);
 
-//  get message
-router.route("/get-message/:senderId/:receiverId").get(getMessage);
+
+router.post(
+  "/chat/send/:receiverId",
+  authguard,
+  chatUpload.single("file"),
+  validateChatMediaSizes,
+  sendChatMessage
+);
+
+router.get("/chat/conversations", authguard, getConversations);
+router.get("/chat/messages/:otherUserId", authguard, getChatMessages);
+router.patch("/chat/seen/:otherUserId", authguard, markConversationSeen);
 
 module.exports = router;

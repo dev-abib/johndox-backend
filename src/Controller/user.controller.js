@@ -1,3 +1,4 @@
+const { default: mongoose } = require("mongoose");
 const { mailSender } = require("../Helpers/emailSender");
 const {
   createAdminSessionToken,
@@ -13,6 +14,7 @@ const {
   deleteCloudinaryAsset,
 } = require("../Helpers/uploadCloudinary");
 const { Admin } = require("../Schema/admin.schema");
+const { UserRating } = require("../Schema/user.rating.schema");
 const { user } = require("../Schema/user.schema");
 
 const { apiError } = require("../Utils/api.error");
@@ -658,6 +660,77 @@ const getSingleuser = asyncHandler(async (req, res, next) => {
     );
 });
 
+const rateUser = asyncHandler(async (req, res, next) => {
+  const { reciverId } = req.params;
+  const { rating, comment } = req.body;
+
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  if (!userId) {
+    return next(new apiError(401, "Unauthorized", null, false));
+  }
+
+  const numericRating = Number(rating);
+
+  if (!numericRating || numericRating < 1 || numericRating > 5) {
+    return next(
+      new apiError(400, "Rating must be between 1 and 5.", null, false)
+    );
+  }
+
+  if (String(userId) === String(reciverId)) {
+    return next(new apiError(400, "You cannot rate yourself.", null, false));
+  }
+
+  const isExistedReceiver = await user.findById(reciverId);
+
+  if (!isExistedReceiver) {
+    return next(
+      new apiError(404, "Receiver account didn't exist or removed", null, false)
+    );
+  }
+
+  // create/update rating (same rater -> same receiver only one rating)
+  const ratingDoc = await UserRating.findOneAndUpdate(
+    { rater: userId, receiver: reciverId },
+    { rating: numericRating, comment: comment ?? null },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+
+  // recalc receiver avg + count
+  const stats = await UserRating.aggregate([
+    { $match: { receiver: new mongoose.Types.ObjectId(reciverId) } },
+    {
+      $group: {
+        _id: "$receiver",
+        avg: { $avg: "$rating" },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const avg = stats?.[0]?.avg ?? 0;
+  const count = stats?.[0]?.count ?? 0;
+
+  await user.findByIdAndUpdate(reciverId, {
+    "ratingSummary.avg": Number(avg.toFixed(2)),
+    "ratingSummary.count": count,
+  });
+
+  return res.status(200).json(
+    new apiSuccess(
+      200,
+      "Successfully rated user",
+      {
+        yourRating: ratingDoc,
+        receiverRatingSummary: { avg: Number(avg.toFixed(2)), count },
+      },
+      false
+    )
+  );
+});
+
 module.exports = {
   registerUserController,
   loginUserController,
@@ -672,4 +745,5 @@ module.exports = {
   verifyAccount,
   resendOtp,
   getSingleuser,
+  rateUser,
 };

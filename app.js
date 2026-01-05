@@ -23,15 +23,15 @@ app.use(helmet());
 // Update CORS configuration to specify the allowed origin
 app.use(
   cors({
-    origin: "http://localhost:5173", // Replace with the URL of your frontend
+    origin: "http://localhost:5173",
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    credentials: true, // Allow credentials (cookies, HTTP authentication, etc.)
+    credentials: true, 
   })
 );
 
 // Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, 
   max: 100,
   message: "Too many requests from this IP, please try again later.",
 });

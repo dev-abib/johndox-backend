@@ -1,0 +1,39 @@
+const mongoose = require("mongoose");
+const { Schema, model, models } = mongoose;
+
+const conversationSchema = new Schema(
+  {
+    participants: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
+    ],
+
+    participantsKey: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
+    lastMessageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "message",
+      default: null,
+    },
+    lastMessageText: { type: String, default: "" },
+    lastMessageType: {
+      type: String,
+      enum: ["text", "image", "video", "pdf", "mixed", ""],
+      default: "",
+    },
+    lastMessageAt: { type: Date, default: null, index: true },
+
+    unreadCount: { type: Map, of: Number, default: {} },
+  },
+  { timestamps: true }
+);
+
+conversationSchema.index({ participants: 1, lastMessageAt: -1 });
+
+const Conversation =
+  models.conversation || model("conversation", conversationSchema);
+module.exports = { Conversation };

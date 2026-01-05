@@ -4,42 +4,43 @@ const { model, models, Schema } = mongoose;
 const messageSchema = new Schema(
   {
     senderId: {
-      type: mongoose.Schema.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: [true, "Sender ID is required"],
+      required: true,
+      index: true,
     },
     receiverId: {
-      type: mongoose.Schema.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: [true, "Receiver ID is required"],
-    },
-    message: {
-      type: String,
       required: true,
+      index: true,
     },
-    fileUrl: {
-      type: String,
-    },
+
+    message: { type: String, default: "" },
+
+    fileUrl: { type: String, default: "" },
     fileType: {
       type: String,
+      enum: ["", "image", "video", "pdf"],
+      default: "",
     },
-    isRead: {
-      type: Boolean,
-      default: false,
-    },
+
     status: {
       type: String,
       enum: ["pending", "delivered", "seen"],
       default: "pending",
+      index: true,
     },
+
+    deliveredAt: { type: Date, default: null },
+    seenAt: { type: Date, default: null },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-const Message = models.message || model("message", messageSchema);
+messageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
+messageSchema.index({ receiverId: 1, status: 1, createdAt: -1 });
+messageSchema.index({ createdAt: -1 });
 
-module.exports = {
-  Message,
-};
+const Message = models.message || model("message", messageSchema);
+module.exports = { Message };

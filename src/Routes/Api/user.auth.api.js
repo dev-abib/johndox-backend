@@ -13,11 +13,10 @@ const {
   logoutUser,
   verifyAccount,
   resendOtp,
-
+  rateUser,
 } = require("../../Controller/user.controller");
-const {  uploadMedia } = require("../../middleware/multer.middleware");
+const { uploadMedia } = require("../../middleware/multer.middleware");
 const { authguard } = require("../../middleware/authGuard");
-
 
 // extracting router from express
 const { Router } = express;
@@ -62,6 +61,7 @@ router.route("/delete-acc").delete(authguard, deleteUserAccount);
 // log out account
 router.route("/log-out").post(authguard, logoutUser);
 
-
+// rate user
+router.route("/rate/:reciverId").post(authguard, rateUser);
 
 module.exports = router;

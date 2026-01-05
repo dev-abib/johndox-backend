@@ -583,6 +583,8 @@ const getMyFavouritesListing = asyncHandler(async (req, res, next) => {
     );
 });
 
+
+
 module.exports = {
   addProperty,
   getMyProperty,
