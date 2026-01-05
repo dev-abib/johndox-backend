@@ -8,6 +8,8 @@ const {
   getAllproperties,
   getAllProperties,
   requestATour,
+  toggleFavouriteListing,
+  getMyFavouritesListing,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -34,4 +36,13 @@ router.route("/all-listings").get(getAllProperties);
 // request a property tour
 router.route("/request-a-tour").post(authguard, requestATour);
 
+router
+  .route("/toggle-favourite-listing/:propertyId")
+  .post(authguard, toggleFavouriteListing);
+
+router
+  .route("/get-my-favourite-listing")
+  .get(authguard, getMyFavouritesListing);
+
+  
 module.exports = router;

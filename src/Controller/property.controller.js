@@ -498,5 +498,96 @@ const requestATour = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Successfully sent tour request"));
 });
 
+const toggleFavouriteListing = asyncHandler(async (req, res, next) => {
+  const { propertyId } = req.params;
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
 
-module.exports = { addProperty, getMyProperty, getAllProperties, requestATour };
+  if (decodedData?.userData?.role !== "buyer") {
+    return next(
+      new apiError(401, "Only buyer can add favourite listings", null, false)
+    );
+  }
+
+  const property = await Property.findById(propertyId);
+  if (!property) {
+    return next(
+      new apiError(404, "Requested property doesn't exist", null, false)
+    );
+  }
+
+  const isFavourite = property.favourites?.some(
+    (id) => id.toString() === userId
+  );
+
+  if (isFavourite) {
+    property.favourites.pull(userId);
+  } else {
+    property.favourites.push(userId);
+  }
+
+  await property.save();
+
+  const safeProperty = await Property.findById(propertyId).select(
+    "-author -favourites -__v"
+  );
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        isFavourite
+          ? "Property removed from favourite list"
+          : "Property added to favourite list",
+        safeProperty,
+        true
+      )
+    );
+});
+
+const getMyFavouritesListing = asyncHandler(async (req, res, next) => {
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  if (decodedData?.userData?.role !== "buyer") {
+    return next(
+      new apiError(401, "Only buyer has favourite listings", null, false)
+    );
+  }
+
+  const myFavouriteListing = await Property.find({ favourites: userId }).select(
+    "-author -favourites"
+  );
+
+  if (myFavouriteListing.length === 0) {
+    return next(
+      new apiError(
+        404,
+        "Currently you don't have any favourite listing",
+        null,
+        false
+      )
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "Successfully retrieved favourite listings",
+        myFavouriteListing,
+        true
+      )
+    );
+});
+
+module.exports = {
+  addProperty,
+  getMyProperty,
+  getAllProperties,
+  requestATour,
+  toggleFavouriteListing,
+  getMyFavouritesListing,
+};

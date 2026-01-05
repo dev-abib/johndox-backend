@@ -117,6 +117,12 @@ const propertySchema = new Schema(
       type: String,
       default: false,
     },
+    favourites: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "user",
+      },
+    ],
   },
   { timestamps: true }
 );
