@@ -26,13 +26,14 @@ const {
   getAllDynamicPages,
   getDynamicPageBySlug,
 } = require("../../Controller/admin.auth.controller");
-const { authguard } = require("../../middleware/authGuard");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const {
   getSingleuser,
   getUserAllPost,
 } = require("../../Controller/user.controller");
 const { adminAuthGuard } = require("../../middleware/adminAuthGuard");
+
+
 
 // extracting router from express
 const { Router } = express;
@@ -45,35 +46,35 @@ router.route("/admin-login").post(loginAdminController);
 router.route("/get/admin").get(verifyAdmin);
 
 // get all existing user
-router.route("/get-all-user-data").get(authguard, getAllUserData);
+router.route("/get-all-user-data").get(adminAuthGuard, getAllUserData);
 
 // update admin data
 
 router
   .route("/update/admin")
-  .put(authguard, uploadMedia.single("profilePicture"), updateAdminData);
+  .put(adminAuthGuard, uploadMedia.single("profilePicture"), updateAdminData);
 
 // update admin pass
-router.route("/update/admin-pass").put(authguard, updateAdminPassword);
+router.route("/update/admin-pass").put(adminAuthGuard, updateAdminPassword);
 
 // update smtp settings
 
-router.route("/update/social-site-data").put(authguard, updateSocialSiteData);
+router.route("/update/social-site-data").put(adminAuthGuard, updateSocialSiteData);
 
 // get smtp settings
-router.route("/get/social-site-data").get(authguard, getSocialSiteData);
+router.route("/get/social-site-data").get(adminAuthGuard, getSocialSiteData);
 
 // up insert company address
-router.route("/upsert-company-data").put(authguard, upInseertCompanyAddress);
+router.route("/upsert-company-data").put(adminAuthGuard, upInseertCompanyAddress);
 
 // get company address data
-router.route("/get/company-data").get(authguard, getCompanyAddressData);
+router.route("/get/company-data").get(adminAuthGuard, getCompanyAddressData);
 
 // update site settings data
-router.route("/update/site-settings").put(authguard, updateSiteSettings);
+router.route("/update/site-settings").put(adminAuthGuard, updateSiteSettings);
 
 // get site settings data
-router.route("/get/site-settings").get(authguard, getSiteSettings);
+router.route("/get/site-settings").get(adminAuthGuard, getSiteSettings);
 
 // get single user
 router.route("/get-user/:userId").get(adminAuthGuard, getSingleuser);
