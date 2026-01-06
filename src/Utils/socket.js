@@ -55,6 +55,9 @@ const initSocket = (server) => {
       socketId: socket.id,
     });
 
+    // ✅ broadcast that this user is now online
+    socket.broadcast.emit("user-online", { userId: String(userId) });
+
     // flush offline message IDs
     (async () => {
       const ids = await redis.lrange(offlineListKey(userId), 0, -1);
@@ -134,10 +137,18 @@ const initSocket = (server) => {
     socket.on("disconnect", async () => {
       await deleteUserSocket(userId);
 
+      const lastSeen = Date.now();
+
       await user.findByIdAndUpdate(userId, {
         isOnline: false,
-        lastSeen: Date.now(),
+        lastSeen,
         socketId: null,
+      });
+
+      // ✅ broadcast that this user is now offline
+      socket.broadcast.emit("user-offline", {
+        userId: String(userId),
+        lastSeen,
       });
     });
   });
