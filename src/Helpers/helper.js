@@ -2,6 +2,7 @@
 // External dependencies
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const axios = require("axios");
 
 /**
  * Hashes the user's password for secure storage.
@@ -162,7 +163,37 @@ const otpGenerator = () => {
   return aleaRNGFactory(new Date()).uInt32().toString().slice(0, 4);
 };
 
-module.exports = { otpGenerator };
+async function geocodeAddress(fullAddress) {
+  const key = process.env.LOCATIONIQ_KEY;
+  if (!key) throw new Error("LOCATIONIQ_KEY missing in .env");
+
+  const url = "https://us1.locationiq.com/v1/search";
+
+  const { data } = await axios.get(url, {
+    params: {
+      key,
+      q: fullAddress,
+      format: "json",
+      limit: 1,
+      addressdetails: 1,
+      normalizecity: 1,
+    },
+    timeout: 10000,
+  });
+
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    throw new Error("No geocoding results found (LocationIQ)");
+  }
+
+  const lat = Number(data[0].lat);
+  const lng = Number(data[0].lon);
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    throw new Error("Invalid lat/lng received from LocationIQ");
+  }
+
+  return { lat, lng };
+}
 
 module.exports = {
   createSessionToken,
@@ -172,4 +203,5 @@ module.exports = {
   otpGenerator,
   createAdminSessionToken,
   verifyAdminSessionToken,
+  geocodeAddress,
 };

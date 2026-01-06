@@ -9,6 +9,7 @@ const propertySchema = new Schema(
       required: [true, "Author information is required"],
       ref: "user",
     },
+
     propertyName: {
       type: String,
       required: [true, "Property name is required"],
@@ -81,12 +82,7 @@ const propertySchema = new Schema(
       required: [true, "Area in square meters is required"],
     },
 
-    amenities: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    amenities: [{ type: String, trim: true }],
 
     media: {
       type: [
@@ -113,10 +109,28 @@ const propertySchema = new Schema(
       required: [true, "Category is required"],
       index: true,
     },
-    views: {
-      type: String,
-      default: false,
+
+    location: {
+      geo: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          required: true,
+        },
+        coordinates: {
+          type: [Number],
+          required: true,
+        },
+      },
+      lat: { type: Number, required: true },
+      lng: { type: Number, required: true },
     },
+
+    views: {
+      type: Number,
+      default: 0,
+    },
+
     favourites: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -126,6 +140,8 @@ const propertySchema = new Schema(
   },
   { timestamps: true }
 );
+
+propertySchema.index({ "location.geo": "2dsphere" });
 
 const Property = models.Property || model("Property", propertySchema);
 

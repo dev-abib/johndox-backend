@@ -3,7 +3,7 @@ const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { Property } = require("../Schema/property.schema");
 const { uploadCloudinary } = require("../Helpers/uploadCloudinary");
-const { decodeSessionToken } = require("../Helpers/helper");
+const { decodeSessionToken, geocodeAddress } = require("../Helpers/helper");
 const { user } = require("../Schema/user.schema");
 const { mailSender } = require("../Helpers/emailSender");
 
@@ -33,6 +33,9 @@ const addProperty = asyncHandler(async (req, res, next) => {
     amenities,
     category,
   } = req.body;
+
+  const addressString = `${fullAddress}, ${city}, ${state}`;
+  const { lat, lng } = await geocodeAddress(addressString);
 
   const files = req.files || {};
   const photoFiles = files.photos || [];
@@ -99,10 +102,8 @@ const addProperty = asyncHandler(async (req, res, next) => {
 
   if (Number.isNaN(yearBuiltNumber))
     errors.yearBuilt = "Year built must be a number";
-
   if (Number.isNaN(areaInMeterNumber))
     errors.areaInMeter = "Area in meter must be a number";
-
   if (Number.isNaN(areaInSqMeterNumber))
     errors.areaInSqMeter = "Area in square meters must be a number";
 
@@ -110,14 +111,12 @@ const addProperty = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Validation error", errors, false));
   }
 
-  // Normalize amenities
   const normalizedAmenities = Array.isArray(amenities)
     ? amenities
     : amenities
     ? [amenities]
     : [];
 
-  // Upload media to Cloudinary
   const media = [];
 
   for (const file of photoFiles) {
@@ -132,11 +131,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
         )
       );
     }
-
-    media.push({
-      url: result.secure_url,
-      fileType: "image",
-    });
+    media.push({ url: result.secure_url, fileType: "image" });
   }
 
   for (const file of videoFiles) {
@@ -146,11 +141,18 @@ const addProperty = asyncHandler(async (req, res, next) => {
         new apiError(500, "Failed to upload property video", null, false)
       );
     }
+    media.push({ url: result.secure_url, fileType: "video" });
+  }
 
-    media.push({
-      url: result.secure_url,
-      fileType: "video",
-    });
+  if (media.length === 0) {
+    return next(
+      new apiError(
+        400,
+        "At least one media is required",
+        { media: "Upload at least 1 image/video" },
+        false
+      )
+    );
   }
 
   const createdProperty = await Property.create({
@@ -170,6 +172,14 @@ const addProperty = asyncHandler(async (req, res, next) => {
     amenities: normalizedAmenities,
     media,
     category,
+    location: {
+      geo: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
+      lat,
+      lng,
+    },
     author: decodedData?.userData?.userId,
   });
 
@@ -582,8 +592,6 @@ const getMyFavouritesListing = asyncHandler(async (req, res, next) => {
       )
     );
 });
-
-
 
 module.exports = {
   addProperty,
