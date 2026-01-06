@@ -10,6 +10,8 @@ const {
   requestATour,
   toggleFavouriteListing,
   getMyFavouritesListing,
+  createSavedSearch,
+  getMySavedSearches,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -44,5 +46,8 @@ router
   .route("/get-my-favourite-listing")
   .get(authguard, getMyFavouritesListing);
 
-  
+router.route("/saved-search").post(authguard, createSavedSearch);
+
+router.route("/get-saved-search").get(authguard, getMySavedSearches);
+
 module.exports = router;

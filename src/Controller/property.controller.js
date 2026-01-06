@@ -6,6 +6,7 @@ const { uploadCloudinary } = require("../Helpers/uploadCloudinary");
 const { decodeSessionToken, geocodeAddress } = require("../Helpers/helper");
 const { user } = require("../Schema/user.schema");
 const { mailSender } = require("../Helpers/emailSender");
+const {savedSearch} = require("../Schema/property.searched.schema")
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -593,6 +594,78 @@ const getMyFavouritesListing = asyncHandler(async (req, res, next) => {
     );
 });
 
+const createSavedSearch = asyncHandler(async (req, res, next) => {
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  if (!userId) {
+    return next(new apiError(401, "Unauthorized", null, false));
+  }
+
+  // If you only want buyers to use it (same as favourites):
+  if (decodedData?.userData?.role !== "buyer") {
+    return next(
+      new apiError(401, "Only buyer can create saved searches", null, false)
+    );
+  }
+
+  const { title, filters, alertsEnabled, frequency } = req.body;
+
+  if (!title) {
+    return next(new apiError(400, "Title is required", null, false));
+  }
+
+  // Optional: basic filter validation/sanitization
+  const payload = {
+    userId,
+    title: title?.trim(),
+    filters: {
+      city: filters?.city,
+      priceMin: filters?.priceMin,
+      priceMax: filters?.priceMax,
+      propertyType: filters?.propertyType,
+      beds: filters?.beds,
+      baths: filters?.baths,
+    },
+    alertsEnabled: alertsEnabled ?? true,
+    frequency: frequency ?? "daily",
+    lastCheckedAt: new Date(),
+  };
+
+  const created = await savedSearch.create(payload);
+
+  return res
+    .status(201)
+    .json(
+      new apiSuccess(201, "Saved search created successfully", created, true)
+    );
+});
+
+const getMySavedSearches = asyncHandler(async (req, res, next) => {
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  if (!userId) {
+    return next(new apiError(401, "Unauthorized", null, false));
+  }
+
+  if (decodedData?.userData?.role !== "buyer") {
+    return next(new apiError(401, "Only buyer can view saved searches", null, false));
+  }
+
+  const searches = await savedSearch.find({ userId }).sort({ createdAt: -1 });
+
+  if (!searches || searches.length === 0) {
+    return next(new apiError(404, "No saved searches found", null, false));
+  }
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Successfully retrieved saved searches", searches, true));
+});
+
+
+
 module.exports = {
   addProperty,
   getMyProperty,
@@ -600,4 +673,6 @@ module.exports = {
   requestATour,
   toggleFavouriteListing,
   getMyFavouritesListing,
+  createSavedSearch,
+  getMySavedSearches,
 };
