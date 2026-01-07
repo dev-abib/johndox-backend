@@ -14,6 +14,7 @@ const {
   verifyAccount,
   resendOtp,
   rateUser,
+  contactSupportForMe,
 } = require("../../Controller/user.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const { authguard } = require("../../middleware/authGuard");
@@ -63,5 +64,8 @@ router.route("/log-out").post(authguard, logoutUser);
 
 // rate user
 router.route("/rate/:reciverId").post(authguard, rateUser);
+
+// contact support
+router.route("/contact-support").post(contactSupportForMe);
 
 module.exports = router;

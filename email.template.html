@@ -1,191 +1,79 @@
-const RequestTourEmailTemplate = ({
-  sellerName,
-  propertyName,
-  buyerName,
-  buyerEmail,
-  phoneNumber,
-  message,
-  date,
-}) => {
-  const formattedDate = date ? new Date(date).toDateString() : "Not selected";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Message from Website Contact Form</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f4f7fa; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; padding: 40px 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+    .header p { margin: 10px 0 0; font-size: 16px; opacity: 0.9; }
+    .content { padding: 40px 30px; color: #374151; }
+    .content h2 { font-size: 22px; margin-bottom: 20px; color: #1f2937; }
+    .details { background: #f8fafc; border-radius: 10px; padding: 25px; }
+    .details table { width: 100%; border-collapse: collapse; }
+    .details td { padding: 12px 0; vertical-align: top; }
+    .label { font-weight: bold; color: #4b5563; width: 140px; }
+    .value { color: #111827; }
+    .message-box { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-top: 20px; font-style: italic; color: #4b5563; }
+    .footer { background: #f1f5f9; padding: 30px; text-align: center; font-size: 14px; color: #6b7280; }
+    .footer a { color: #3b82f6; text-decoration: none; }
+    @media only screen and (max-width: 600px) {
+      .container { margin: 20px; }
+      .header { padding: 30px 20px; }
+      .content { padding: 30px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>New Message Received</h1>
+      <p>Someone just submitted the contact form on your website</p>
+    </div>
 
-  const safe = (v) =>
-    String(v ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+    <!-- Content -->
+    <div class="content">
+      <h2>Contact Details</h2>
+      <div class="details">
+        <table>
+          <tr>
+            <td class="label">Full Name:</td>
+            <td class="value">[Full Name]</td>
+          </tr>
+          <tr>
+            <td class="label">Email:</td>
+            <td class="value">[Email Address]</td>
+          </tr>
+          <tr>
+            <td class="label">Phone Number:</td>
+            <td class="value">[Phone Number]</td>
+          </tr>
+          <tr>
+            <td class="label">Subject:</td>
+            <td class="value">[Subject]</td>
+          </tr>
+        </table>
 
-  const safeSellerName = safe(sellerName || "there");
-  const safePropertyName = safe(propertyName || "your property");
-  const safeBuyerName = safe(buyerName || "-");
-  const safeBuyerEmail = safe(buyerEmail || "-");
-  const safePhone = safe(phoneNumber || "-");
-  const safeMessage = safe(message || "-").replace(/\n/g, "<br/>");
-  const safeFormattedDate = safe(formattedDate);
-
-  const cleanPhoneForTel = phoneNumber
-    ? String(phoneNumber).replace(/\s+/g, "")
-    : "";
-
-  const mailtoLink = `mailto:${encodeURIComponent(buyerEmail || "")}?subject=${encodeURIComponent(
-    `Tour request for: ${propertyName || "Property"}`
-  )}&body=${encodeURIComponent(
-    `Hi ${buyerName || ""},\n\nThanks for your tour request.\n\nProperty: ${
-      propertyName || ""
-    }\nPreferred date: ${formattedDate}\nPhone: ${phoneNumber || ""}\n\n—`
-  )}`;
-
-  return `
-  <!doctype html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <meta name="x-apple-disable-message-reformatting" />
-      <title>New Tour Request</title>
-      <style>
-        /* Some clients strip head styles, but keeping minimal helps in Gmail/Web */
-        @media (max-width: 600px) {
-          .container { width: 100% !important; }
-          .px { padding-left: 16px !important; padding-right: 16px !important; }
-          .btn { display: block !important; width: 100% !important; }
-          .btn + .btn { margin-top: 10px !important; }
-        }
-      </style>
-    </head>
-    <body style="margin:0; padding:0; background:#f3f5f9;">
-      <!-- Preheader (hidden preview text) -->
-      <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
-        A buyer requested a tour for ${safePropertyName}. View details and reply quickly.
+        <div class="message-box">
+          <strong>Message:</strong><br><br>
+          [Message]
+        </div>
       </div>
 
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f3f5f9; padding:24px 0;">
-        <tr>
-          <td align="center" style="padding:0 12px;">
-            <table role="presentation" class="container" width="640" cellspacing="0" cellpadding="0" border="0" style="width:640px; max-width:640px;">
-              <!-- Top brand bar -->
-              <tr>
-                <td style="padding:0 0 14px 0;">
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                    <tr>
-                      <td align="left" style="font-family:Arial, sans-serif; font-size:12px; letter-spacing:1px; color:#2563eb; font-weight:700; text-transform:uppercase;">
-                        Terralink
-                      </td>
-                      <td align="right" style="font-family:Arial, sans-serif; font-size:12px; color:#94a3b8;">
-                        Tour Request
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
+      <p style="margin-top: 30px; font-size: 15px;">
+        This lead was captured on <strong>[Date & Time]</strong>. Respond promptly to convert this inquiry!
+      </p>
+    </div>
 
-              <!-- Card -->
-              <tr>
-                <td style="background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 10px 30px rgba(2,6,23,0.10);">
-                  
-                  <!-- Header -->
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">
-                    <tr>
-                      <td class="px" style="padding:22px 24px; font-family:Arial, sans-serif; color:#ffffff;">
-                        <div style="font-size:18px; font-weight:800; margin:0 0 6px 0;">
-                          New tour request received
-                        </div>
-                        <div style="font-size:13px; line-height:1.6; opacity:0.95;">
-                          Hi ${safeSellerName}, a buyer requested a tour for
-                          <span style="font-weight:700;">${safePropertyName}</span>.
-                        </div>
-                      </td>
-                    </tr>
-                  </table>
-
-                  <!-- Body -->
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                    <tr>
-                      <td class="px" style="padding:20px 24px; font-family:Arial, sans-serif;">
-                        
-                        <!-- Buyer details title -->
-                        <div style="font-size:12px; font-weight:800; letter-spacing:0.6px; color:#475569; text-transform:uppercase; margin-bottom:10px;">
-                          Buyer details
-                        </div>
-
-                        <!-- Details table -->
-                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e7ecf5; border-radius:12px; overflow:hidden;">
-                          <tr>
-                            <td style="padding:12px 14px; background:#f8fafc; width:160px; font-size:13px; color:#64748b; font-family:Arial, sans-serif;">Name</td>
-                            <td style="padding:12px 14px; font-size:14px; color:#0f172a; font-weight:700; font-family:Arial, sans-serif;">${safeBuyerName}</td>
-                          </tr>
-                          <tr>
-                            <td style="padding:12px 14px; background:#f8fafc; width:160px; font-size:13px; color:#64748b; font-family:Arial, sans-serif;">Email</td>
-                            <td style="padding:12px 14px; font-size:14px; color:#0f172a; font-weight:700; font-family:Arial, sans-serif;">${safeBuyerEmail}</td>
-                          </tr>
-                          <tr>
-                            <td style="padding:12px 14px; background:#f8fafc; width:160px; font-size:13px; color:#64748b; font-family:Arial, sans-serif;">Phone</td>
-                            <td style="padding:12px 14px; font-size:14px; color:#0f172a; font-weight:700; font-family:Arial, sans-serif;">${safePhone}</td>
-                          </tr>
-                          <tr>
-                            <td style="padding:12px 14px; background:#f8fafc; width:160px; font-size:13px; color:#64748b; font-family:Arial, sans-serif;">Preferred date</td>
-                            <td style="padding:12px 14px; font-size:14px; color:#0f172a; font-weight:700; font-family:Arial, sans-serif;">${safeFormattedDate}</td>
-                          </tr>
-                        </table>
-
-                        <!-- Message -->
-                        <div style="font-size:12px; font-weight:800; letter-spacing:0.6px; color:#475569; text-transform:uppercase; margin:18px 0 10px;">
-                          Message
-                        </div>
-
-                        <div style="background:#f8fafc; border:1px solid #e7ecf5; border-radius:12px; padding:14px; font-size:14px; line-height:1.7; color:#334155; font-family:Arial, sans-serif;">
-                          ${safeMessage}
-                        </div>
-
-                        <!-- Buttons -->
-                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:18px;">
-                          <tr>
-                            <td>
-                              <a class="btn" href="${mailtoLink}"
-                                 style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:12px 16px; border-radius:12px; font-family:Arial, sans-serif; font-size:14px; font-weight:800;">
-                                Reply to buyer
-                              </a>
-                              ${
-                                phoneNumber
-                                  ? `<a class="btn" href="tel:${cleanPhoneForTel}"
-                                       style="display:inline-block; margin-left:10px; background:#ffffff; color:#0f172a; text-decoration:none; padding:12px 16px; border-radius:12px; font-family:Arial, sans-serif; font-size:14px; font-weight:800; border:1px solid #e7ecf5;">
-                                        Call buyer
-                                     </a>`
-                                  : ""
-                              }
-                            </td>
-                          </tr>
-                        </table>
-
-                        <!-- Small helper note -->
-                        <div style="margin-top:14px; font-size:12px; color:#64748b; line-height:1.6; font-family:Arial, sans-serif;">
-                          Tip: You can reply directly from your email client — set <b>Reply-To</b> to the buyer’s email for fastest communication.
-                        </div>
-
-                      </td>
-                    </tr>
-
-                    <!-- Footer -->
-                    <tr>
-                      <td style="border-top:1px solid #eef2f7; padding:16px 24px; font-family:Arial, sans-serif; font-size:12px; color:#94a3b8; line-height:1.6;">
-                        This request was sent from your Terralink listing.<br/>
-                        <span style="color:#cbd5e1;">If you didn’t expect this email, you can safely ignore it.</span>
-                      </td>
-                    </tr>
-                  </table>
-
-                </td>
-              </tr>
-
-              <!-- Bottom spacing -->
-              <tr><td style="height:16px;"></td></tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-  </html>
-  `;
-};
+    <!-- Footer -->
+    <div class="footer">
+      <p>© 2026 [Your Company Name]. All rights reserved.</p>
+      <p><a href="https://yourwebsite.com">yourwebsite.com</a> | <a href="mailto:info@yourwebsite.com">info@yourwebsite.com</a></p>
+    </div>
+  </div>
+</body>
+</html>

@@ -3,6 +3,7 @@ const {
   PasswordResetTemplate,
   AccountVerificationTemplate,
   RequestTourEmailTemplate,
+  ContactFormEmailTemplate,
 } = require("./email.template");
 
 const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
@@ -39,9 +40,20 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
       });
     }
 
+    if (type === "contact") {
+      html = ContactFormEmailTemplate({
+        fullName: data?.fullName,
+        email: data?.email,
+        phoneNumber: data?.phoneNumber,
+        subject: data?.subject,
+        message: data?.message,
+        submittedAt: data?.createdAt,
+      });
+    }
+
     const mailOptions = {
       from: `"${process.env.MAIL_FROM_NAME}" <${process.env.MAIL_FROM_ADDRESS}>`,
-      to: emailAdress,
+      to: emailAdress || process.env.SITE_OWNER_MAIL,
       subject,
       html,
     };

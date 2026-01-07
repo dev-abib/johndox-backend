@@ -21,6 +21,7 @@ const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
 const { emailChecker, passwordChecker } = require("../Utils/check");
+const { supportMessage } = require("../Schema/support.message.schema");
 
 // register user controller
 const registerUserController = asyncHandler(async (req, res, next) => {
@@ -37,7 +38,7 @@ const registerUserController = asyncHandler(async (req, res, next) => {
   const roles = ["buyer", "seller"];
 
   if (!firstName) {
-     return next(new apiError(400, "First name field is required"));
+    return next(new apiError(400, "First name field is required"));
   }
 
   if (!lastName) {
@@ -175,7 +176,6 @@ const verifyAccount = asyncHandler(async (req, res, next) => {
 
   if (!isExisteduser)
     return next(new apiError(404, "User not found", null, false));
-
 
   if (isExisteduser.otp !== otp)
     return next(new apiError(400, "Invalid OTP", null, false));
@@ -731,6 +731,67 @@ const rateUser = asyncHandler(async (req, res, next) => {
   );
 });
 
+const contactSupportForMe = asyncHandler(async (req, res, next) => {
+  const { fullName, email, subject, phoneNumber, message } = req.body;
+
+  if (!fullName) {
+    return next(new apiError(400, "Full name is required", null, false));
+  }
+  if (!email) {
+    return next(new apiError(400, " Email is required", null, false));
+  }
+  if (!emailChecker(email)) {
+    return next(new apiError(400, "Invalid email address", null, false));
+  }
+  if (!subject) {
+    return next(new apiError(400, " subject is required", null, false));
+  }
+  if (!phoneNumber) {
+    return next(new apiError(400, "phone number is required", null, false));
+  }
+  if (!message) {
+    return next(new apiError(400, " message is required", null, false));
+  }
+
+  const userMessage = new supportMessage({
+    fullName,
+    email,
+    subject,
+    phoneNumber,
+    message,
+  });
+
+  const savedMessage = await userMessage.save();
+
+  if (!savedMessage) {
+    return new apiError(
+      500,
+      "Can't send query at the moment, please try again late.",
+      null,
+      false
+    );
+  }
+
+  const isMailSent = await mailSender({
+    data: savedMessage,
+    type: "contact",
+    subject: savedMessage?.subject,
+  });
+
+  if (!isMailSent) {
+    return new apiError(
+      500,
+      "Can't send query at the moment, please try again late.",
+      null,
+      false
+    );
+  }
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "successfully sent query", null, true, false));
+});
+
 module.exports = {
   registerUserController,
   loginUserController,
@@ -746,4 +807,5 @@ module.exports = {
   resendOtp,
   getSingleuser,
   rateUser,
+  contactSupportForMe,
 };
