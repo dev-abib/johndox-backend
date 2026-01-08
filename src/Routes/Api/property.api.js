@@ -12,8 +12,11 @@ const {
   getMyFavouritesListing,
   createSavedSearch,
   getMySavedSearches,
+  upsertPropertyHero,
+  getPropertyHero,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
+
 
 const { Router } = express;
 const router = Router();
@@ -49,5 +52,11 @@ router
 router.route("/saved-search").post(authguard, createSavedSearch);
 
 router.route("/get-saved-search").get(authguard, getMySavedSearches);
+
+router
+  .route("/upsert-property-hero")
+  .post(uploadMedia.single("bgImg"), upsertPropertyHero);
+
+router.route("/get-property-hero").get(getPropertyHero);
 
 module.exports = router;

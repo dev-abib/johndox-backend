@@ -2,11 +2,15 @@ const { asyncHandler } = require("../Utils/asyncHandler");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { Property } = require("../Schema/property.schema");
-const { uploadCloudinary } = require("../Helpers/uploadCloudinary");
+const {
+  uploadCloudinary,
+  deleteCloudinaryAsset,
+} = require("../Helpers/uploadCloudinary");
 const { decodeSessionToken, geocodeAddress } = require("../Helpers/helper");
 const { user } = require("../Schema/user.schema");
 const { mailSender } = require("../Helpers/emailSender");
-const {savedSearch} = require("../Schema/property.searched.schema")
+const { savedSearch } = require("../Schema/property.searched.schema");
+const { propertyHero } = require("../Schema/property.hero.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -650,7 +654,9 @@ const getMySavedSearches = asyncHandler(async (req, res, next) => {
   }
 
   if (decodedData?.userData?.role !== "buyer") {
-    return next(new apiError(401, "Only buyer can view saved searches", null, false));
+    return next(
+      new apiError(401, "Only buyer can view saved searches", null, false)
+    );
   }
 
   const searches = await savedSearch.find({ userId }).sort({ createdAt: -1 });
@@ -661,10 +667,89 @@ const getMySavedSearches = asyncHandler(async (req, res, next) => {
 
   return res
     .status(200)
-    .json(new apiSuccess(200, "Successfully retrieved saved searches", searches, true));
+    .json(
+      new apiSuccess(
+        200,
+        "Successfully retrieved saved searches",
+        searches,
+        true
+      )
+    );
 });
 
+const upsertPropertyHero = asyncHandler(async (req, res, next) => {
+  const { title, description, propertyType } = req.body;
+  const bgImg = req.file;
 
+  let hero = await propertyHero.findOne();
+
+  if (!hero) {
+    if (!bgImg) {
+      return next(new apiError(400, "Hero background image is required"));
+    }
+
+    const uploadResult = await uploadCloudinary(
+      bgImg.buffer,
+      "cms/landing/hero"
+    );
+    if (!uploadResult?.secure_url) {
+      return next(new apiError(500, "Hero background upload failed"));
+    }
+
+    hero = await propertyHero.create({
+      title,
+      description,
+      propertyType,
+      bgImg: uploadResult.secure_url,
+    });
+
+    return res
+      .status(201)
+      .json(new apiSuccess(201, "Property hero created successfully", hero));
+  }
+
+  hero.title = title ?? hero.title;
+  hero.description = description ?? hero.description;
+  hero.propertyType = propertyType ?? hero.propertyType;
+
+  if (bgImg) {
+    if (hero.bgImg) {
+      const isDeleted = await deleteCloudinaryAsset(hero.bgImg);
+      if (!isDeleted) {
+        return next(new apiError(500, "Error deleting old hero background"));
+      }
+    }
+
+    const uploadResult = await uploadCloudinary(
+      bgImg.buffer,
+      "cms/landing/hero"
+    );
+    if (!uploadResult?.secure_url) {
+      return next(new apiError(500, "Hero background upload failed"));
+    }
+
+    hero.bgImg = uploadResult.secure_url;
+  }
+
+  await hero.save();
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Property details updated successfully", hero));
+});
+
+const getPropertyHero = asyncHandler(async (req, res, next) => {
+  let hero = await propertyHero.findOne();
+
+  if (!hero) {
+    return next(new apiError(404, "Property hero not found"));
+  }
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(200, "Successfully extracted property hero details", hero)
+    );
+});
 
 module.exports = {
   addProperty,
@@ -675,4 +760,6 @@ module.exports = {
   getMyFavouritesListing,
   createSavedSearch,
   getMySavedSearches,
+  upsertPropertyHero,
+  getPropertyHero,
 };
