@@ -14,9 +14,12 @@ const {
   getMySavedSearches,
   upsertPropertyHero,
   getPropertyHero,
+  setFeaturedProperties,
+  getFeaturedProperties,
+  upsertFeaturedSection,
+  featuredSectionCms,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
-
 
 const { Router } = express;
 const router = Router();
@@ -58,5 +61,10 @@ router
   .post(uploadMedia.single("bgImg"), upsertPropertyHero);
 
 router.route("/get-property-hero").get(getPropertyHero);
+
+router.route("/set-feature-properties").post(setFeaturedProperties);
+
+router.route("/get-featured-properties").get(getFeaturedProperties);
+
 
 module.exports = router;

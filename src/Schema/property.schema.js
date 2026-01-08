@@ -137,6 +137,10 @@ const propertySchema = new Schema(
         ref: "user",
       },
     ],
+
+    isFeatured: { type: Boolean, default: false, index: true },
+    featuredOrder: { type: Number, default: null, index: true },
+    featuredAt: { type: Date, default: null, index: true },
   },
   { timestamps: true }
 );

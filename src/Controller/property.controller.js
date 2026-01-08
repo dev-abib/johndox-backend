@@ -11,6 +11,10 @@ const { user } = require("../Schema/user.schema");
 const { mailSender } = require("../Helpers/emailSender");
 const { savedSearch } = require("../Schema/property.searched.schema");
 const { propertyHero } = require("../Schema/property.hero.schema");
+const mongoose = require("mongoose");
+const {
+  featuredCms,
+} = require("../Schema/featured.section.content.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -751,6 +755,121 @@ const getPropertyHero = asyncHandler(async (req, res, next) => {
     );
 });
 
+const setFeaturedProperties = asyncHandler(async (req, res, next) => {
+  const { propertyIds, title, subtitle } = req.body;
+
+  const MAX_FEATURED = 6;
+
+  if (title !== undefined || subtitle !== undefined) {
+    await featuredCms.findOneAndUpdate(
+      {},
+      {
+        ...(title !== undefined ? { title } : {}),
+        ...(subtitle !== undefined ? { subtitle } : {}),
+      },
+      { upsert: true, new: true }
+    );
+  }
+
+  if (!Array.isArray(propertyIds)) {
+    return next(new apiError(400, "propertyIds must be an array"));
+  }
+
+  const uniqueIds = [...new Set(propertyIds.map(String))];
+
+  if (uniqueIds.length === 0) {
+    await Property.updateMany(
+      { isFeatured: true },
+      { $set: { isFeatured: false, featuredOrder: null, featuredAt: null } }
+    );
+
+    return res.status(200).json(
+      new apiSuccess(200, "Featured section updated successfully", {
+        title,
+        subtitle,
+        items: [],
+      })
+    );
+  }
+
+  if (uniqueIds.length > MAX_FEATURED) {
+    return next(
+      new apiError(400, `You can feature max ${MAX_FEATURED} properties`)
+    );
+  }
+
+  for (const id of uniqueIds) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new apiError(400, `Invalid property id: ${id}`));
+    }
+  }
+
+  const foundCount = await Property.countDocuments({ _id: { $in: uniqueIds } });
+  if (foundCount !== uniqueIds.length) {
+    return next(new apiError(404, "One or more properties not found"));
+  }
+
+  await Property.updateMany(
+    { isFeatured: true, _id: { $nin: uniqueIds } },
+    { $set: { isFeatured: false, featuredOrder: null, featuredAt: null } }
+  );
+
+  const now = new Date();
+  const ops = uniqueIds.map((id, index) => ({
+    updateOne: {
+      filter: { _id: id },
+      update: {
+        $set: {
+          isFeatured: true,
+          featuredOrder: index + 1,
+          featuredAt: now,
+        },
+      },
+    },
+  }));
+
+  await Property.bulkWrite(ops);
+
+  const items = await Property.find({ _id: { $in: uniqueIds } })
+    .select(
+      "propertyName price city state media propertyType listingType featuredOrder isFeatured"
+    )
+    .sort({ featuredOrder: 1 })
+    .lean();
+
+  const content = await featuredCms.findOne().lean();
+
+  return res.status(200).json(
+    new apiSuccess(200, "Featured section updated successfully", {
+      title: content?.title,
+      subtitle: content?.subtitle,
+      items,
+    })
+  );
+});
+
+const getFeaturedProperties = asyncHandler(async (req, res, next) => {
+  const limit = Math.min(parseInt(req.query.limit || "6", 10), 30);
+
+  const content = await featuredCms.findOne();
+
+  const items = await Property.find({ isFeatured: true })
+    .select(
+      "propertyName price city state media propertyType listingType bedrooms bathrooms areaInSqMeter featuredOrder featuredAt"
+    )
+    .sort({ featuredOrder: 1, featuredAt: -1, createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  return res.status(200).json(
+    new apiSuccess(200, "Successfully extracted featured section", {
+      title: content?.title,
+      subtitle: content?.subtitle,
+      items,
+    })
+  );
+});
+
 module.exports = {
   addProperty,
   getMyProperty,
@@ -762,4 +881,6 @@ module.exports = {
   getMySavedSearches,
   upsertPropertyHero,
   getPropertyHero,
+  setFeaturedProperties,
+  getFeaturedProperties,
 };
