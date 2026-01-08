@@ -25,7 +25,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://johndox-admin-dashboard-31uw.vercel.app/",
+      "https://johndox-admin-dashboard-31uw.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
