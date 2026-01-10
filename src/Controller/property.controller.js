@@ -1036,7 +1036,7 @@ const getCategorySection = asyncHandler(async (req, res, next) => {
 });
 
 const deleteCategory = asyncHandler(async (req, res, next) => {
-  console.log(categoryId, "this is the category id");
+  const categoryId = req.params.categoryId;
 
   const category = await Category.findById(categoryId);
 
