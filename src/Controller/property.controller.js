@@ -40,7 +40,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
     areaInMeter,
     areaInSqMeter,
     amenities,
-    category,
+    category, // User will send the category name
   } = req.body;
 
   const addressString = `${fullAddress}, ${city}, ${state}`;
@@ -75,24 +75,25 @@ const addProperty = asyncHandler(async (req, res, next) => {
   const validPropertyTypes = ["house", "apartment", "land", "commercial"];
   const validListingTypes = ["for sale", "for rent"];
 
-  const isCategory = await Category.find();
+  // Fetch the category by name (category is passed as the name by the user)
+  const validCategory = await Category.findOne({ name: category });
 
-  const validCategories = await isCategory;
+  if (!validCategory) {
+    errors.category = `Category '${category}' is not valid.`;
+  }
 
+  // Validate property type
   if (propertyType && !validPropertyTypes.includes(propertyType)) {
     errors.propertyType = `Property type must be one of: ${validPropertyTypes.join(
       ", "
     )}`;
   }
 
+  // Validate listing type
   if (listingType && !validListingTypes.includes(listingType)) {
     errors.listingType = `Listing type must be one of: ${validListingTypes.join(
       ", "
     )}`;
-  }
-
-  if (category && !validCategories.includes(category)) {
-    errors.category = `Category must be one of: ${validCategories.join(", ")}`;
   }
 
   const priceNumber = Number(price);
@@ -123,6 +124,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Validation error", errors, false));
   }
 
+  // Normalize amenities to array if it's not already
   const normalizedAmenities = Array.isArray(amenities)
     ? amenities
     : amenities
@@ -131,6 +133,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
 
   const media = [];
 
+  // Handle photo file uploads
   for (const file of photoFiles) {
     const result = await uploadCloudinary(file.buffer, "property/media/photos");
     if (!result?.secure_url) {
@@ -146,6 +149,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
     media.push({ url: result.secure_url, fileType: "image" });
   }
 
+  // Handle video file uploads
   for (const file of videoFiles) {
     const result = await uploadCloudinary(file.buffer, "property/media/videos");
     if (!result?.secure_url) {
@@ -156,6 +160,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
     media.push({ url: result.secure_url, fileType: "video" });
   }
 
+  // Ensure at least one media file is uploaded
   if (media.length === 0) {
     return next(
       new apiError(
@@ -167,6 +172,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Create the new property in the database
   const createdProperty = await Property.create({
     propertyName,
     description,
@@ -183,7 +189,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
     areaInSqMeter: areaInSqMeterNumber,
     amenities: normalizedAmenities,
     media,
-    category,
+    category: validCategory._id, // Pass the category _id instead of name
     location: {
       geo: {
         type: "Point",
@@ -206,6 +212,8 @@ const addProperty = asyncHandler(async (req, res, next) => {
       )
     );
 });
+
+
 
 const getMyProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
