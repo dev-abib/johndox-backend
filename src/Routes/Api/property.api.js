@@ -19,6 +19,7 @@ const {
   upsertFeaturedSection,
   featuredSectionCms,
   upsertCategory,
+  getCategorySection,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -67,6 +68,12 @@ router.route("/set-feature-properties").post(setFeaturedProperties);
 
 router.route("/get-featured-properties").get(getFeaturedProperties);
 
-router.route("/upsert-property/:categoryId").post(upsertCategory);
+router.route("/add-category").post(uploadMedia.single("bgImg"), upsertCategory);
+
+router
+  .route("/update-category/:categoryId")
+  .post(uploadMedia.single("bgImg"), upsertCategory);
+
+router.route("/get-category-section").get(getCategorySection);
 
 module.exports = router;

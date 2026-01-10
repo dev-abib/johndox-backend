@@ -875,38 +875,147 @@ const getFeaturedProperties = asyncHandler(async (req, res, next) => {
 
 const upsertCategory = asyncHandler(async (req, res, next) => {
   const { name, title, section_title, section_sub_title } = req.body;
+  const bgImg = req.file;
+  const categoryId = req.params.categoryId;
 
-  const isExistedCategorySection = await categorySection.findOne();
+  let createdCategorySection = null;
 
-  if (isExistedCategorySection && section_title) {
-    isExistedCategorySection.title =
-      isExistedCategorySection.title || section_title;
-    isExistedCategorySection.subTitle =
-      isExistedCategorySection.subTitle || section_sub_title;
+  if (section_title || section_sub_title) {
+    const isExistedCategorySection = await categorySection.findOne();
+
+    if (isExistedCategorySection) {
+      isExistedCategorySection.title =
+        isExistedCategorySection.title || section_title;
+      isExistedCategorySection.subTitle =
+        isExistedCategorySection.subTitle || section_sub_title;
+
+      createdCategorySection = await isExistedCategorySection.save();
+    } else {
+      const newSection = new categorySection({
+        title: section_title,
+        subtitle: section_sub_title,
+      });
+
+      createdCategorySection = await newSection.save();
+    }
+
+    // If only section data is provided, don't create or update the category
+    if (!name || !title || !bgImg) {
+      return res.status(200).json(
+        new apiSuccess(200, "Section updated successfully", {
+          categorySection: createdCategorySection,
+        })
+      );
+    }
   }
 
-  const bgImg = req.file;
-
-  const categoryId = req.params;
-
-  if (categoryId) {
-    if (!name) {
-      return next(new apiError(400, "Category name is required"));
+  // If no categoryId is provided, proceed with category creation
+  if (!categoryId) {
+    // Validate category creation data
+    if (!name || !title || !bgImg) {
+      return res
+        .status(400)
+        .json(
+          new apiError(400, "Category name, title, and image are required")
+        );
     }
 
-    if (!title) {
-      return next(new apiError(400, "Category title is required"));
+    // Check if the category already exists by name
+    const isExistedCategory = await Category.findOne({ name });
+    if (isExistedCategory) {
+      return next(new apiError(400, "Category already exists"));
     }
 
-    if (!bgImg) {
-      return next(new apiError(400, "Category image is required"));
+    // Upload image to Cloudinary
+    const uploadResult = await uploadCloudinary(
+      bgImg.buffer,
+      "cms/categories/bg"
+    );
+    if (!uploadResult?.secure_url) {
+      return res
+        .status(500)
+        .json(new apiError(500, "Category image upload failed"));
     }
 
+    // Create new category
     const newCategory = new Category({
       name,
       title,
+      bgImg: uploadResult.secure_url,
     });
+
+    const createdCategory = await newCategory.save();
+
+    return res.status(201).json(
+      new apiSuccess(201, "Category created successfully", {
+        category: createdCategory,
+        categorySection: createdCategorySection,
+      })
+    );
+  } else {
+    // If categoryId is provided, proceed with category update
+    const existingCategory = await Category.findById(categoryId);
+    if (!existingCategory) {
+      return res.status(404).json(new apiError(404, "Category not found"));
+    }
+
+    // Update category fields if provided
+    existingCategory.name = name || existingCategory.name;
+    existingCategory.title = title || existingCategory.title;
+
+    if (bgImg) {
+      try {
+        // Delete old image if a new one is provided
+        if (existingCategory.bgImg) {
+          const isDeleted = await deleteCloudinaryAsset(existingCategory.bgImg);
+          if (!isDeleted) {
+            return res
+              .status(500)
+              .json(new apiError(500, "Error deleting old image"));
+          }
+        }
+
+        // Upload the new image
+        const uploadResult = await uploadCloudinary(
+          bgImg.buffer,
+          "cms/categories/bg"
+        );
+        if (!uploadResult?.secure_url) {
+          return res
+            .status(500)
+            .json(new apiError(500, "Profile picture upload failed"));
+        }
+
+        existingCategory.bgImg = uploadResult.secure_url;
+      } catch (error) {
+        console.error("Cloudinary error:", error);
+        return res
+          .status(500)
+          .json(new apiError(500, "Error updating category image"));
+      }
+    }
+
+    const updatedCategory = await existingCategory.save();
+
+    return res.status(200).json(
+      new apiSuccess(200, "Category updated successfully", {
+        category: updatedCategory,
+        categorySection: createdCategorySection,
+      })
+    );
   }
+});
+
+const getCategorySection = asyncHandler(async (req, res, next) => {
+  const categories = await Category.find();
+  const sectionData = await categorySection.findOne();
+
+  res.status(200).json(
+    new apiSuccess(200, "Category section data retrived successfully", {
+      sectionData,
+      categories,
+    })
+  );
 });
 
 module.exports = {
@@ -923,4 +1032,5 @@ module.exports = {
   setFeaturedProperties,
   getFeaturedProperties,
   upsertCategory,
+  getCategorySection,
 };
