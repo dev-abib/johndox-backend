@@ -878,6 +878,8 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
   const bgImg = req.file;
   const categoryId = req.params.categoryId;
 
+  console.log(section_title, section_sub_title);
+
   let createdCategorySection = null;
 
   if (section_title || section_sub_title) {
@@ -885,9 +887,9 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
 
     if (isExistedCategorySection) {
       isExistedCategorySection.title =
-        isExistedCategorySection.title || section_title;
+        section_title || isExistedCategorySection.title;
       isExistedCategorySection.subTitle =
-        isExistedCategorySection.subTitle || section_sub_title;
+        section_sub_title || isExistedCategorySection.subTitle;
 
       createdCategorySection = await isExistedCategorySection.save();
     } else {
@@ -1007,10 +1009,8 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
 });
 
 const getCategorySection = asyncHandler(async (req, res, next) => {
-  // Get all categories
   const categories = await Category.find();
 
-  // For each category, count the number of properties in that category
   const categoryWithPropertyCount = await Promise.all(
     categories.map(async (category) => {
       const propertyCount = await Property.countDocuments({
@@ -1035,6 +1035,28 @@ const getCategorySection = asyncHandler(async (req, res, next) => {
   );
 });
 
+const deleteCategory = asyncHandler(async (req, res, next) => {
+  console.log(categoryId, "this is the category id");
+
+  const category = await Category.findById(categoryId);
+
+  if (!category) {
+    return next(new apiError(404, "Category not found"));
+  }
+
+  const deletedCategory = await Category.findByIdAndDelete(categoryId);
+
+  if (!deletedCategory) {
+    return new apiError(
+      500,
+      "Can't delete category at the moment , please try again later"
+    );
+  }
+
+  return res
+    .status(200)
+    .json(new apiError(200, "Successfully deleted category ", deletedCategory));
+});
 
 module.exports = {
   addProperty,
@@ -1051,4 +1073,5 @@ module.exports = {
   getFeaturedProperties,
   upsertCategory,
   getCategorySection,
+  deleteCategory,
 };

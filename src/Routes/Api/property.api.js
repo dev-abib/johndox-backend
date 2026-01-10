@@ -20,6 +20,7 @@ const {
   featuredSectionCms,
   upsertCategory,
   getCategorySection,
+  deleteCategory,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -75,5 +76,7 @@ router
   .post(uploadMedia.single("bgImg"), upsertCategory);
 
 router.route("/get-category-section").get(getCategorySection);
+
+router.route("/delete-category/:categoryId").delete(deleteCategory);
 
 module.exports = router;
