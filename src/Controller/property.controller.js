@@ -1007,16 +1007,34 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
 });
 
 const getCategorySection = asyncHandler(async (req, res, next) => {
+  // Get all categories
   const categories = await Category.find();
+
+  // For each category, count the number of properties in that category
+  const categoryWithPropertyCount = await Promise.all(
+    categories.map(async (category) => {
+      const propertyCount = await Property.countDocuments({
+        category: category._id,
+      });
+      return {
+        ...category.toObject(),
+        propertyCount,
+      };
+    })
+  );
+
+  // Retrieve the category section data (if needed)
   const sectionData = await categorySection.findOne();
 
+  // Respond with category data and section data
   res.status(200).json(
-    new apiSuccess(200, "Category section data retrived successfully", {
+    new apiSuccess(200, "Category section data retrieved successfully", {
       sectionData,
-      categories,
+      categories: categoryWithPropertyCount,
     })
   );
 });
+
 
 module.exports = {
   addProperty,
