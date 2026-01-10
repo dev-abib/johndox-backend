@@ -12,9 +12,9 @@ const { mailSender } = require("../Helpers/emailSender");
 const { savedSearch } = require("../Schema/property.searched.schema");
 const { propertyHero } = require("../Schema/property.hero.schema");
 const mongoose = require("mongoose");
-const {
-  featuredCms,
-} = require("../Schema/featured.section.content.schema");
+const { featuredCms } = require("../Schema/featured.section.content.schema");
+const { Category } = require("../Schema/category.schema");
+const { categorySection } = require("../Schema/category.section.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -74,7 +74,10 @@ const addProperty = asyncHandler(async (req, res, next) => {
 
   const validPropertyTypes = ["house", "apartment", "land", "commercial"];
   const validListingTypes = ["for sale", "for rent"];
-  const validCategories = ["residential", "commercial", "industrial", "land"];
+
+  const isCategory = await Category.find();
+
+  const validCategories = await isCategory;
 
   if (propertyType && !validPropertyTypes.includes(propertyType)) {
     errors.propertyType = `Property type must be one of: ${validPropertyTypes.join(
@@ -870,6 +873,42 @@ const getFeaturedProperties = asyncHandler(async (req, res, next) => {
   );
 });
 
+const upsertCategory = asyncHandler(async (req, res, next) => {
+  const { name, title, section_title, section_sub_title } = req.body;
+
+  const isExistedCategorySection = await categorySection.findOne();
+
+  if (isExistedCategorySection && section_title) {
+    isExistedCategorySection.title =
+      isExistedCategorySection.title || section_title;
+    isExistedCategorySection.subTitle =
+      isExistedCategorySection.subTitle || section_sub_title;
+  }
+
+  const bgImg = req.file;
+
+  const categoryId = req.params;
+
+  if (categoryId) {
+    if (!name) {
+      return next(new apiError(400, "Category name is required"));
+    }
+
+    if (!title) {
+      return next(new apiError(400, "Category title is required"));
+    }
+
+    if (!bgImg) {
+      return next(new apiError(400, "Category image is required"));
+    }
+
+    const newCategory = new Category({
+      name,
+      title,
+    });
+  }
+});
+
 module.exports = {
   addProperty,
   getMyProperty,
@@ -883,4 +922,5 @@ module.exports = {
   getPropertyHero,
   setFeaturedProperties,
   getFeaturedProperties,
+  upsertCategory,
 };

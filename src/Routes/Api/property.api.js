@@ -18,6 +18,7 @@ const {
   getFeaturedProperties,
   upsertFeaturedSection,
   featuredSectionCms,
+  upsertCategory,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -66,5 +67,6 @@ router.route("/set-feature-properties").post(setFeaturedProperties);
 
 router.route("/get-featured-properties").get(getFeaturedProperties);
 
+router.route("/upsert-property/:categoryId").post(upsertCategory);
 
 module.exports = router;

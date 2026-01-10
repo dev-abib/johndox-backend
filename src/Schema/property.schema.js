@@ -104,8 +104,8 @@ const propertySchema = new Schema(
     },
 
     category: {
-      type: String,
-      enum: ["residential", "commercial", "industrial", "land"],
+      type: mongoose.Schema.ObjectId,
+      ref: "Category",
       required: [true, "Category is required"],
       index: true,
     },
