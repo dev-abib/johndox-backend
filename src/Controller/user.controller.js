@@ -342,35 +342,48 @@ const changePassword = asyncHandler(async (req, res, next) => {
 const verifyEmail = asyncHandler(async (req, res, next) => {
   const { email } = req.body;
 
-  if (!email)
+  if (!email) {
     return next(new apiError(400, "Email field is required", null, false));
+  }
 
-  if (!emailChecker(email))
+  // Check if the email format is valid
+  if (!emailChecker(email)) {
     return next(new apiError(400, "Invalid Email format", null, false));
+  }
 
+  // Check if the user exists
   const isExisteduser = await user.findOne({ email: email });
 
-  if (!isExisteduser)
+  if (!isExisteduser) {
     return next(new apiError(404, "User not found", null, false));
+  }
 
+  // Generate OTP
   const otp = await otpGenerator();
 
+  if (!otp) {
+    return next(new apiError(500, "Failed to generate OTP", null, false));
+  }
+
+  // Update the user with the OTP and its expiration time
   isExisteduser.otp = otp;
-  isExisteduser.otpExpiresAt = new Date(Date.now() + 2 * 60 * 1000);
+  isExisteduser.otpExpiresAt = new Date(Date.now() + 2 * 60 * 1000); // OTP expires in 2 minutes
   await isExisteduser.save();
 
   try {
+    // Send the OTP email
     await mailSender({
       type: "otp",
       name: isExisteduser.firstName || "User",
       emailAdress: email,
       subject: "Your One-Time Password (OTP)",
-      otp,
+      otp: otp, // Make sure to pass the OTP to the email content
     });
 
+    // Send a success response
     return res
       .status(200)
-      .json(new apiSuccess(200, "OTP sent successfully", email, true, null));
+      .json(new apiSuccess(200, "OTP sent successfully", null, true));
   } catch (error) {
     console.error("OTP email failed:", error.message);
     return next(new apiError(500, "Failed to send OTP email", null, false));

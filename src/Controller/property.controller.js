@@ -15,6 +15,7 @@ const mongoose = require("mongoose");
 const { featuredCms } = require("../Schema/featured.section.content.schema");
 const { Category } = require("../Schema/category.schema");
 const { categorySection } = require("../Schema/category.section.schema");
+const { serviceSection } = require("../Schema/section.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -212,8 +213,6 @@ const addProperty = asyncHandler(async (req, res, next) => {
       )
     );
 });
-
-
 
 const getMyProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -1066,6 +1065,153 @@ const deleteCategory = asyncHandler(async (req, res, next) => {
     .json(new apiError(200, "Successfully deleted category ", deletedCategory));
 });
 
+
+const createServiceSection = asyncHandler(async (req, res, next) => {
+  const { sectionTitle, sectionSubtitle, items } = req.body;
+
+  if (!sectionTitle || !sectionSubtitle || !items || !Array.isArray(items)) {
+    return next(
+      new apiError(
+        400,
+        "Section title, section subtitle, and items array are required"
+      )
+    );
+  }
+
+  // Create a new section
+  const section = new serviceSection({
+    sectionTitle,
+    sectionSubtitle,
+    items,
+  });
+
+  const savedSection = await section.save();
+
+  res
+    .status(201)
+    .json(new apiSuccess(201, "Section created successfully", savedSection));
+});
+
+// Add new items to the existing section (without updating sectionTitle or sectionSubtitle)
+const createItemsInSection = asyncHandler(async (req, res, next) => {
+  const { items } = req.body;
+
+  if (!items || !Array.isArray(items)) {
+    return next(new apiError(400, "Items array is required"));
+  }
+
+  // Find the section (assuming there's only one section)
+  const section = await serviceSection.findOne();
+
+  if (!section) {
+    return next(new apiError(404, "Section not found"));
+  }
+
+  // Add new items to the existing section
+  section.items.push(...items); // Add new items without changing sectionTitle or sectionSubtitle
+
+  const updatedSection = await section.save();
+
+  res
+    .status(200)
+    .json(new apiSuccess(200, "Items added successfully", updatedSection));
+});
+
+// Update section title and subtitle (only if passed, otherwise keep the existing ones)
+const updateSectionTitleAndSubtitle = asyncHandler(async (req, res, next) => {
+  const { sectionTitle, sectionSubtitle } = req.body;
+  const { sectionId } = req.params;
+
+  // Find the section by ID
+  const section = await serviceSection.findById(sectionId);
+  if (!section) {
+    return next(new apiError(404, "Section not found"));
+  }
+
+  // Update title and subtitle only if they're provided
+  if (sectionTitle) section.sectionTitle = sectionTitle;
+  if (sectionSubtitle) section.sectionSubtitle = sectionSubtitle;
+
+  const updatedSection = await section.save();
+
+  res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "Section title and subtitle updated successfully",
+        updatedSection
+      )
+    );
+});
+
+// Update the items in the section (items are the only part that can be updated)
+const updateItemsInSection = asyncHandler(async (req, res, next) => {
+  const { items } = req.body;
+
+  if (!items || !Array.isArray(items)) {
+    return next(new apiError(400, "Items array is required"));
+  }
+
+  // We assume there's only one section, as sectionTitle/sectionSubtitle are not meant to change
+  const section = await serviceSection.findOne();
+
+  if (!section) {
+    return next(new apiError(404, "Section not found"));
+  }
+
+  // Update items
+  section.items = items;
+
+  const updatedSection = await section.save();
+
+  res
+    .status(200)
+    .json(new apiSuccess(200, "Items updated successfully", updatedSection));
+});
+
+// Delete an item from the section
+const deleteItemFromSection = asyncHandler(async (req, res, next) => {
+  const { itemId } = req.params;
+
+  if (!itemId) {
+    return next(new apiError(400, "Item ID is required"));
+  }
+
+  // Find the section
+  const section = await serviceSection.findOne();
+
+  if (!section) {
+    return next(new apiError(404, "Section not found"));
+  }
+
+  // Find and remove the item
+  const item = section.items.id(itemId);
+  if (!item) {
+    return next(new apiError(404, "Item not found"));
+  }
+
+  item.remove();
+  const updatedSection = await section.save();
+
+  res
+    .status(200)
+    .json(new apiSuccess(200, "Item deleted successfully", updatedSection));
+});
+
+// Get all sections (No sectionId required)
+const getSectionData = asyncHandler(async (req, res) => {
+  const sections = await serviceSection.find();
+
+  if (!sections || sections.length === 0) {
+    return res.status(404).json(new apiError(404, "No sections found"));
+  }
+
+  res
+    .status(200)
+    .json(new apiSuccess(200, "Sections retrieved successfully", sections));
+});
+
 module.exports = {
   addProperty,
   getMyProperty,
@@ -1082,4 +1228,8 @@ module.exports = {
   upsertCategory,
   getCategorySection,
   deleteCategory,
+  createServiceSection,
+  updateItemsInSection,
+  deleteItemFromSection,
+  getSectionData,
 };

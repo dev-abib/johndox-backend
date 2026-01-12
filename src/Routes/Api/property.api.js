@@ -21,6 +21,10 @@ const {
   upsertCategory,
   getCategorySection,
   deleteCategory,
+  createServiceSection,
+  getSectionData,
+  deleteItemFromSection,
+  updateItemsInSection,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -78,5 +82,22 @@ router
 router.route("/get-category-section").get(getCategorySection);
 
 router.route("/delete-category/:categoryId").delete(deleteCategory);
+
+router.route("/create-service-section").post(createServiceSection);
+
+router.route("/create-service-section").post(createServiceSection);
+
+// router.route("/create-items").post(createItemsInSection);
+
+// router.route("/update-section/:sectionId").put(updateSectionTitleAndSubtitle);
+
+
+router.route("/update-items").put(updateItemsInSection);
+
+
+router.route("/delete-item/:itemId").delete(deleteItemFromSection);
+
+router.route("/sections").get(getSectionData);
+
 
 module.exports = router;
