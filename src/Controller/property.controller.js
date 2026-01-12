@@ -1065,57 +1065,32 @@ const deleteCategory = asyncHandler(async (req, res, next) => {
     .json(new apiError(200, "Successfully deleted category ", deletedCategory));
 });
 
-
-const createServiceSection = asyncHandler(async (req, res, next) => {
-  const { sectionTitle, sectionSubtitle, items } = req.body;
-
-  if (!sectionTitle || !sectionSubtitle || !items || !Array.isArray(items)) {
-    return next(
-      new apiError(
-        400,
-        "Section title, section subtitle, and items array are required"
-      )
-    );
-  }
-
-  // Create a new section
-  const section = new serviceSection({
-    sectionTitle,
-    sectionSubtitle,
-    items,
-  });
-
-  const savedSection = await section.save();
-
-  res
-    .status(201)
-    .json(new apiSuccess(201, "Section created successfully", savedSection));
-});
-
 const createOrUpdateSection = asyncHandler(async (req, res, next) => {
   const { sectionTitle, sectionSubtitle, items } = req.body;
 
-  if (!sectionTitle || !sectionSubtitle || !Array.isArray(items)) {
-    return next(
-      new apiError(400, "Section title, subtitle, and items array are required")
-    );
+  if (!sectionTitle || !sectionSubtitle) {
+    return next(new apiError(400, "Section title and subtitle are required"));
   }
 
-  // Check if the section exists (only one section is assumed)
   let section = await serviceSection.findOne();
 
-  // If no section exists, create a new one
   if (!section) {
     section = new serviceSection({
       sectionTitle,
       sectionSubtitle,
-      items,
+      items: items || [], // default to empty array if not provided
     });
   } else {
-    // If section exists, update it
     section.sectionTitle = sectionTitle;
     section.sectionSubtitle = sectionSubtitle;
-    section.items = items; // Replace items array
+
+    // Only update items if they were sent in the request
+    if (items !== undefined) {
+      if (!Array.isArray(items)) {
+        return next(new apiError(400, "Items must be an array if provided"));
+      }
+      section.items = items;
+    }
   }
 
   const savedSection = await section.save();
@@ -1130,8 +1105,18 @@ const createOrUpdateSection = asyncHandler(async (req, res, next) => {
 const addOrUpdateItems = asyncHandler(async (req, res, next) => {
   const { items } = req.body;
 
+  // Validate that items is an array
   if (!items || !Array.isArray(items)) {
     return next(new apiError(400, "Items array is required"));
+  }
+
+  // Validate each item to ensure it has the required fields
+  for (const item of items) {
+    if (!item.title || !item.description || !item.icon) {
+      return next(
+        new apiError(400, "Each item must have title, description, and icon")
+      );
+    }
   }
 
   // Find the section and update items
@@ -1140,7 +1125,8 @@ const addOrUpdateItems = asyncHandler(async (req, res, next) => {
     return next(new apiError(404, "Section not found"));
   }
 
-  section.items = items; // Update items array
+  section.items = items;
+
   const updatedSection = await section.save();
 
   res
@@ -1190,7 +1176,6 @@ const getSectionData = asyncHandler(async (req, res) => {
     .status(200)
     .json(new apiSuccess(200, "Section retrieved successfully", section));
 });
-
 
 module.exports = {
   addProperty,
