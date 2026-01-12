@@ -16,6 +16,9 @@ const { featuredCms } = require("../Schema/featured.section.content.schema");
 const { Category } = require("../Schema/category.schema");
 const { categorySection } = require("../Schema/category.section.schema");
 const { serviceSection } = require("../Schema/section.schema");
+const {
+  listPropertySection,
+} = require("../Schema/list.property.section.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -1078,13 +1081,12 @@ const createOrUpdateSection = asyncHandler(async (req, res, next) => {
     section = new serviceSection({
       sectionTitle,
       sectionSubtitle,
-      items: items || [], // default to empty array if not provided
+      items: items || [],
     });
   } else {
     section.sectionTitle = sectionTitle;
     section.sectionSubtitle = sectionSubtitle;
 
-    // Only update items if they were sent in the request
     if (items !== undefined) {
       if (!Array.isArray(items)) {
         return next(new apiError(400, "Items must be an array if provided"));
@@ -1101,7 +1103,6 @@ const createOrUpdateSection = asyncHandler(async (req, res, next) => {
     );
 });
 
-// Add or Update Items in the Section
 const addOrUpdateItems = asyncHandler(async (req, res, next) => {
   const { items } = req.body;
 
@@ -1136,7 +1137,6 @@ const addOrUpdateItems = asyncHandler(async (req, res, next) => {
     );
 });
 
-// Delete an Item from the Section
 const deleteItemFromSection = asyncHandler(async (req, res, next) => {
   const { itemId } = req.params;
 
@@ -1164,7 +1164,6 @@ const deleteItemFromSection = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Item deleted successfully", updatedSection));
 });
 
-// Get the Section Data (only one section is assumed)
 const getSectionData = asyncHandler(async (req, res) => {
   const section = await serviceSection.findOne();
 
@@ -1173,6 +1172,56 @@ const getSectionData = asyncHandler(async (req, res) => {
   }
 
   res
+    .status(200)
+    .json(new apiSuccess(200, "Section retrieved successfully", section));
+});
+
+const upsertListPropertySection = asyncHandler(async (req, res, next) => {
+  const { title, subtitle, extraTxt, btnTxt } = req.body;
+
+  if (!title || !subtitle) {
+    return next(new apiError(400, "Title and Subtitle are required"));
+  }
+
+  let section = await listPropertySection.findOne();
+
+  if (section) {
+    section.title = section.title || title;
+    section.subtitle = subtitle || section.subtitle;
+    section.extraTxt = extraTxt || section.extraTxt;
+    section.btnTxt = btnTxt || section.btnTxt;
+
+    const updatedSection = await section.save();
+    return res
+      .status(200)
+      .json(
+        new apiSuccess(200, "Section updated successfully", updatedSection)
+      );
+  } else {
+    const newSection = new listPropertySection({
+      title,
+      subtitle,
+      extraTxt,
+      btnTxt,
+    });
+
+    const createdSection = await newSection.save();
+    return res
+      .status(201)
+      .json(
+        new apiSuccess(201, "Section created successfully", createdSection)
+      );
+  }
+});
+
+const getListPropertySections = asyncHandler(async (req, res, next) => {
+  const section = await listPropertySection.findOne();
+
+  if (!section) {
+    return next(new apiError(404, "Section not found"));
+  }
+
+  return res
     .status(200)
     .json(new apiSuccess(200, "Section retrieved successfully", section));
 });
@@ -1197,4 +1246,6 @@ module.exports = {
   addOrUpdateItems,
   deleteItemFromSection,
   getSectionData,
+  upsertListPropertySection,
+  getListPropertySections,
 };

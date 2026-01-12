@@ -27,6 +27,8 @@ const {
   updateItemsInSection,
   createOrUpdateSection,
   addOrUpdateItems,
+  upsertListPropertySection,
+  getListPropertySections,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -96,6 +98,10 @@ router.route("/delete-item/:itemId").delete(deleteItemFromSection);
 
 // Get the Section Data
 router.route("/section-service-section").get(getSectionData);
+
+router.post("/upsert-list-property-section", upsertListPropertySection);
+
+router.get("/list-property-sections", getListPropertySections);
 
 
 module.exports = router;
