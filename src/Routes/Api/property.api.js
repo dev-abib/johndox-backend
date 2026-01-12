@@ -25,6 +25,8 @@ const {
   getSectionData,
   deleteItemFromSection,
   updateItemsInSection,
+  createOrUpdateSection,
+  addOrUpdateItems,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -83,21 +85,17 @@ router.route("/get-category-section").get(getCategorySection);
 
 router.route("/delete-category/:categoryId").delete(deleteCategory);
 
-router.route("/create-service-section").post(createServiceSection);
 
-router.route("/create-service-section").post(createServiceSection);
+router.route("/create-or-update-section").post(createOrUpdateSection);
 
-// router.route("/create-items").post(createItemsInSection);
+// Add or Update Items in the Section
+router.route("/add-or-update-items").post(addOrUpdateItems);
 
-// router.route("/update-section/:sectionId").put(updateSectionTitleAndSubtitle);
-
-
-router.route("/update-items").put(updateItemsInSection);
-
-
+// Delete an Item from the Section by itemId
 router.route("/delete-item/:itemId").delete(deleteItemFromSection);
 
-router.route("/sections").get(getSectionData);
+// Get the Section Data
+router.route("/section-service-section").get(getSectionData);
 
 
 module.exports = router;

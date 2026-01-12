@@ -377,7 +377,7 @@ const verifyEmail = asyncHandler(async (req, res, next) => {
       name: isExisteduser.firstName || "User",
       emailAdress: email,
       subject: "Your One-Time Password (OTP)",
-      otp: otp, // Make sure to pass the OTP to the email content
+      otp: otp, 
     });
 
     // Send a success response
