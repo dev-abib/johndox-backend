@@ -30,6 +30,7 @@ const {
   upsertListPropertySection,
   getListPropertySections,
   loanEstimator,
+  updateProperty,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -45,6 +46,17 @@ router.route("/add-new-property").post(
   ]),
   validateMediaSizes,
   addProperty
+);
+
+// update property details
+router.route("/update-property/:propertyId").put(
+  authguard,
+  uploadMedia.fields([
+    { name: "photos", maxCount: 10 },
+    { name: "video", maxCount: 1 },
+  ]), 
+  validateMediaSizes, 
+  updateProperty 
 );
 
 // get my listing

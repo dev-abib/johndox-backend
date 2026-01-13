@@ -295,7 +295,7 @@ const getUserData = asyncHandler(async (req, res, next) => {
     );
 });
 
-// change passowrd controller
+// change password controller
 const changePassword = asyncHandler(async (req, res, next) => {
   const { prevPassword, password, confirmPassword } = req.body;
   const decodedData = await decodeSessionToken(req);

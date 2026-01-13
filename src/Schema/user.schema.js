@@ -83,8 +83,24 @@ const userSchema = new Schema(
     },
     identity_document: {
       type: String,
-      default:null
-    }
+      default: null,
+    },
+    activeListings: {
+      type: Number,
+      default: 0,
+    },
+    totalViews: {
+      type: Number,
+      default: 0,
+    },
+    totalLeads: {
+      type: Number,
+      default: 0, 
+    },
+    unreadMessages: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

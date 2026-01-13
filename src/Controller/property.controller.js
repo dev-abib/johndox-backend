@@ -44,7 +44,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
     areaInMeter,
     areaInSqMeter,
     amenities,
-    category, // User will send the category name
+    category,
   } = req.body;
 
   const addressString = `${fullAddress}, ${city}, ${state}`;
@@ -193,7 +193,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
     areaInSqMeter: areaInSqMeterNumber,
     amenities: normalizedAmenities,
     media,
-    category: validCategory._id, // Pass the category _id instead of name
+    category: validCategory._id,
     location: {
       geo: {
         type: "Point",
@@ -205,6 +205,13 @@ const addProperty = asyncHandler(async (req, res, next) => {
     author: decodedData?.userData?.userId,
   });
 
+  const User = await user.findById(decodedData?.userData?.userId);
+
+  if (User) {
+    User.activeListings = User.activeListings + 1;
+    User.save();
+  }
+
   return res
     .status(201)
     .json(
@@ -214,6 +221,239 @@ const addProperty = asyncHandler(async (req, res, next) => {
         createdProperty,
         false
       )
+    );
+});
+
+const updateProperty = asyncHandler(async (req, res, next) => {
+  const decodedData = await decodeSessionToken(req);
+
+  if (decodedData?.userData?.role !== "seller") {
+    return next(
+      new apiError(401, "Only seller can update property listing", null, false)
+    );
+  }
+
+  const { propertyId } = req.params;
+
+  // Fetch the property by ID
+  const property = await Property.findById(propertyId);
+
+  if (!property) {
+    return next(new apiError(404, "Property not found", null, false));
+  }
+
+  // Ensure the property belongs to the logged-in user
+  if (property.author.toString() !== decodedData?.userData?.userId) {
+    return next(
+      new apiError(
+        403,
+        "You are not authorized to update this property",
+        null,
+        false
+      )
+    );
+  }
+
+  const {
+    propertyName,
+    description,
+    propertyType,
+    listingType,
+    fullAddress,
+    city,
+    state,
+    price,
+    bedrooms,
+    bathrooms,
+    yearBuilt,
+    areaInMeter,
+    areaInSqMeter,
+    amenities,
+    category,
+    deleteImages = [],
+    deleteVideos = [],
+  } = req.body;
+
+  let deleteImagesArray = deleteImages;
+  if (typeof deleteImages === "string") {
+    try {
+      deleteImagesArray = JSON.parse(deleteImages);
+    } catch (err) {
+      return next(
+        new apiError(
+          400,
+          "Invalid deleteImages format, must be a JSON array",
+          null,
+          false
+        )
+      );
+    }
+  }
+
+  let deleteVideosArray = deleteVideos;
+  if (typeof deleteVideos === "string") {
+    try {
+      deleteVideosArray = JSON.parse(deleteVideos);
+    } catch (err) {
+      return next(
+        new apiError(
+          400,
+          "Invalid deleteVideos format, must be a JSON array",
+          null,
+          false
+        )
+      );
+    }
+  }
+
+  const addressString = `${fullAddress}, ${city}, ${state}`;
+  const { lat, lng } = await geocodeAddress(addressString);
+
+  const files = req.files || {};
+  const photoFiles = files.photos || [];
+  const videoFiles = files.video || [];
+
+  const errors = {};
+
+  // Validation only for fields that are provided
+  if (price && isNaN(price)) errors.price = "Price must be a number";
+  if (bedrooms && isNaN(bedrooms))
+    errors.bedrooms = "Bedrooms must be a number";
+  if (bathrooms && isNaN(bathrooms))
+    errors.bathrooms = "Bathrooms must be a number";
+  if (yearBuilt && isNaN(yearBuilt))
+    errors.yearBuilt = "Year built must be a number";
+  if (areaInMeter && isNaN(areaInMeter))
+    errors.areaInMeter = "Area in meter must be a number";
+  if (areaInSqMeter && isNaN(areaInSqMeter))
+    errors.areaInSqMeter = "Area in square meters must be a number";
+
+  // If any validation errors exist, return them
+  if (Object.keys(errors).length > 0) {
+    return next(new apiError(400, "Validation error", errors, false));
+  }
+
+  // Normalize amenities to array if it's not already
+  const normalizedAmenities = Array.isArray(amenities)
+    ? amenities
+    : amenities
+    ? [amenities]
+    : [];
+
+  let updatedImages = [
+    ...(property.media.filter((m) => m.fileType === "image") || []),
+  ];
+  let updatedVideos = [
+    ...(property.media.filter((m) => m.fileType === "video") || []),
+  ];
+
+  // Delete selected images from Cloudinary
+  if (Array.isArray(deleteImagesArray) && deleteImagesArray.length > 0) {
+    try {
+      for (const imageUrl of deleteImagesArray) {
+        // Reuse your helper: deleteCloudinaryAsset expects full URL
+        const result = await deleteCloudinaryAsset(imageUrl);
+        if (result) {
+          // Remove the deleted image from the local images array
+          updatedImages = updatedImages.filter((img) => img.url !== imageUrl);
+        }
+      }
+    } catch (err) {
+      console.error("Error deleting images from Cloudinary:", err);
+      return next(
+        new apiError(500, "Failed to delete old images", null, false)
+      );
+    }
+  }
+
+  // Delete selected videos from Cloudinary
+  if (Array.isArray(deleteVideosArray) && deleteVideosArray.length > 0) {
+    try {
+      for (const videoUrl of deleteVideosArray) {
+        // Reuse your helper: deleteCloudinaryAsset expects full URL
+        const result = await deleteCloudinaryAsset(videoUrl);
+        if (result) {
+          // Remove the deleted video from the local videos array
+          updatedVideos = updatedVideos.filter((vid) => vid.url !== videoUrl);
+        }
+      }
+    } catch (err) {
+      console.error("Error deleting videos from Cloudinary:", err);
+      return next(
+        new apiError(500, "Failed to delete old videos", null, false)
+      );
+    }
+  }
+
+  // Upload new files (photos and videos)
+  const media = [];
+
+  // Upload new photos
+  for (const file of photoFiles) {
+    const result = await uploadCloudinary(file.buffer, "property/media/photos");
+    if (!result?.secure_url) {
+      return next(new apiError(500, "Failed to upload new photo", null, false));
+    }
+    updatedImages.push({ url: result.secure_url, fileType: "image" });
+  }
+
+  // Upload new videos
+  for (const file of videoFiles) {
+    const result = await uploadCloudinary(file.buffer, "property/media/videos");
+    if (!result?.secure_url) {
+      return next(new apiError(500, "Failed to upload new video", null, false));
+    }
+    updatedVideos.push({ url: result.secure_url, fileType: "video" });
+  }
+
+  // Combine images and videos
+  const updatedMedia = [...updatedImages, ...updatedVideos];
+
+  // Ensure at least one image/video is uploaded
+  if (updatedMedia.length === 0) {
+    return next(
+      new apiError(
+        400,
+        "At least one media is required",
+        { media: "Upload at least 1 image/video" },
+        false
+      )
+    );
+  }
+
+  // Update the property in the database with the provided fields, or keep the existing ones if not provided
+  property.propertyName = propertyName || property.propertyName;
+  property.description = description || property.description;
+  property.propertyType = propertyType || property.propertyType;
+  property.listingType = listingType || property.listingType;
+  property.fullAddress = fullAddress || property.fullAddress;
+  property.city = city || property.city;
+  property.state = state || property.state;
+  property.price = price || property.price;
+  property.bedrooms = bedrooms || property.bedrooms;
+  property.bathrooms = bathrooms || property.bathrooms;
+  property.yearBuilt = yearBuilt || property.yearBuilt;
+  property.areaInMeter = areaInMeter || property.areaInMeter;
+  property.areaInSqMeter = areaInSqMeter || property.areaInSqMeter;
+  property.amenities =
+    normalizedAmenities.length > 0 ? normalizedAmenities : property.amenities;
+  property.media = updatedMedia.length > 0 ? updatedMedia : property.media;
+  property.category = category
+    ? (await Category.findOne({ name: category }))._id
+    : property.category;
+
+  // Handle lat/lng: if lat and lng are provided, update; if not, use existing values
+  property.location.geo.coordinates =
+    lat && lng ? [lng, lat] : property.location.geo.coordinates;
+  property.location.lat = lat ?? property.location.lat;
+  property.location.lng = lng ?? property.location.lng;
+
+  await property.save();
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(200, "Property updated successfully", property, false)
     );
 });
 
@@ -1291,4 +1531,5 @@ module.exports = {
   upsertListPropertySection,
   getListPropertySections,
   loanEstimator,
+  updateProperty,
 };
