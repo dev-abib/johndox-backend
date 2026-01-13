@@ -81,6 +81,10 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+    identity_document: {
+      type: String,
+      default:null
+    }
   },
   {
     timestamps: true,

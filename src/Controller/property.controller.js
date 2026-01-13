@@ -1226,6 +1226,48 @@ const getListPropertySections = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Section retrieved successfully", section));
 });
 
+const loanEstimator = asyncHandler(async (req, res, next) => {
+  const { asset_price, down_payment, loan_terms_years, interest_rate } =
+    req.body;
+
+  if (!asset_price || !down_payment || !loan_terms_years || !interest_rate) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  const assetPrice = parseFloat(asset_price);
+  const downPayment = parseFloat(down_payment);
+  const loanTermsYears = parseInt(loan_terms_years);
+  const interestRate = parseFloat(interest_rate);
+
+  const loanAmount = assetPrice - downPayment;
+
+  const monthlyInterestRate = interestRate / 100 / 12;
+
+  const numberOfPayments = loanTermsYears * 12;
+
+  let monthlyPayment = 0;
+  if (monthlyInterestRate > 0) {
+    monthlyPayment =
+      (loanAmount *
+        monthlyInterestRate *
+        Math.pow(1 + monthlyInterestRate, numberOfPayments)) /
+      (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1);
+  } else {
+    monthlyPayment = loanAmount / numberOfPayments;
+  }
+
+  const esitmated_price = {
+    monthly_payment: monthlyPayment.toFixed(2),
+    loan_amount: loanAmount.toFixed(2),
+    interest_rate: interestRate,
+    loan_terms_years: loanTermsYears,
+  };
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Price estimated successfully", esitmated_price));
+});
+
 module.exports = {
   addProperty,
   getMyProperty,
@@ -1248,4 +1290,5 @@ module.exports = {
   getSectionData,
   upsertListPropertySection,
   getListPropertySections,
+  loanEstimator,
 };

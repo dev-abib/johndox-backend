@@ -29,6 +29,7 @@ const {
   addOrUpdateItems,
   upsertListPropertySection,
   getListPropertySections,
+  loanEstimator,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -87,7 +88,6 @@ router.route("/get-category-section").get(getCategorySection);
 
 router.route("/delete-category/:categoryId").delete(deleteCategory);
 
-
 router.route("/create-or-update-section").post(createOrUpdateSection);
 
 // Add or Update Items in the Section
@@ -101,7 +101,8 @@ router.route("/section-service-section").get(getSectionData);
 
 router.post("/upsert-list-property-section", upsertListPropertySection);
 
-router.get("/list-property-sections", getListPropertySections);
+router.route("/list-property-sections").get(getListPropertySections);
 
+router.route("/price-estimator").post(loanEstimator);
 
 module.exports = router;
