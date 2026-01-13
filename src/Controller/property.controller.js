@@ -209,7 +209,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
 
   if (User) {
     User.activeListings = User.activeListings + 1;
-    User.save();
+    await User.save();
   }
 
   return res
@@ -507,6 +507,84 @@ const getMyProperty = asyncHandler(async (req, res, next) => {
       null
     )
   );
+});
+
+const deleteProperty = asyncHandler(async (req, res, next) => {
+  const { propertyId } = req.params;
+
+  const property = await Property.findById(propertyId);
+
+  if (!property) {
+    return next(new apiError(404, "Property not found", null, false));
+  }
+
+  const decodedData = await decodeSessionToken(req);
+
+  if (property.author.toString() !== decodedData?.userData?.userId) {
+    return next(
+      new apiError(
+        403,
+        "You are not authorized to delete this property",
+        null,
+        false
+      )
+    );
+  }
+
+  const User = await user.findById(decodedData?.userData?.userId);
+
+  if (User) {
+    User.activeListings = User.activeListings - 1;
+    await User.save();
+  }
+
+  try {
+    for (const media of property.media.filter((m) => m.fileType === "image")) {
+      const result = await deleteCloudinaryAsset(media.url);
+      if (!result) {
+        return next(
+          new apiError(
+            500,
+            "Failed to delete image from Cloudinary",
+            null,
+            false
+          )
+        );
+      }
+    }
+
+    for (const media of property.media.filter((m) => m.fileType === "video")) {
+      const result = await deleteCloudinaryAsset(media.url);
+      if (!result) {
+        return next(
+          new apiError(
+            500,
+            "Failed to delete video from Cloudinary",
+            null,
+            false
+          )
+        );
+      }
+    }
+  } catch (err) {
+    console.error("Error deleting assets from Cloudinary:", err);
+    return next(
+      new apiError(500, "Error deleting assets from Cloudinary", null, false)
+    );
+  }
+
+  await Property.findByIdAndDelete(propertyId);
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "Property and its assets deleted successfully",
+        null,
+        false
+      )
+    );
 });
 
 const getAllProperties = asyncHandler(async (req, res, next) => {
@@ -1532,4 +1610,5 @@ module.exports = {
   getListPropertySections,
   loanEstimator,
   updateProperty,
+  deleteProperty,
 };

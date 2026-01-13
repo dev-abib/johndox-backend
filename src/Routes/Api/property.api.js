@@ -31,6 +31,7 @@ const {
   getListPropertySections,
   loanEstimator,
   updateProperty,
+  deleteProperty,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -54,10 +55,13 @@ router.route("/update-property/:propertyId").put(
   uploadMedia.fields([
     { name: "photos", maxCount: 10 },
     { name: "video", maxCount: 1 },
-  ]), 
-  validateMediaSizes, 
-  updateProperty 
+  ]),
+  validateMediaSizes,
+  updateProperty
 );
+
+// delete my listing
+router.route("/delete-property/:propertyId").delete(authguard, deleteProperty);
 
 // get my listing
 router.route("/my-listings").get(authguard, getMyProperty);
