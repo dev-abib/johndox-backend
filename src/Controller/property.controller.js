@@ -476,7 +476,11 @@ const getMyProperty = asyncHandler(async (req, res, next) => {
   const filter = { author: userId };
 
   const [myProperties, total] = await Promise.all([
-    Property.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Property.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(), // Use .lean() for performance if you don't need Mongoose document methods
     Property.countDocuments(filter),
   ]);
 
@@ -486,6 +490,12 @@ const getMyProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Check if each property is a favorite for the logged-in user
+  const propertiesWithFavorites = myProperties.map((property) => {
+    const isFavorite = property.favourites.includes(userId);
+    return { ...property, isFavorite };
+  });
+
   const totalPages = Math.ceil(total / limit);
 
   return res.status(200).send(
@@ -493,7 +503,7 @@ const getMyProperty = asyncHandler(async (req, res, next) => {
       200,
       "Property listing retrieved successfully",
       {
-        items: myProperties,
+        items: propertiesWithFavorites,
         pagination: {
           totalItems: total,
           totalPages,
@@ -732,9 +742,16 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
   const sort = sortMap[sortKey] || sortMap.newest;
 
   const [items, total] = await Promise.all([
-    Property.find(filter).sort(sort).skip(skip).limit(limit),
+    Property.find(filter).sort(sort).skip(skip).limit(limit).lean(),
     Property.countDocuments(filter),
   ]);
+
+  // Check if each property is a favorite for the logged-in user
+  const userId = req.userId; // Assume this is set via authentication middleware
+  const propertiesWithFavorites = items.map((property) => {
+    const isFavorite = property.favourites.includes(userId);
+    return { ...property, isFavorite };
+  });
 
   const totalPages = Math.ceil(total / limit) || 1;
 
@@ -749,7 +766,7 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
       200,
       "Property listing retrieved successfully",
       {
-        items,
+        items: propertiesWithFavorites,
         pagination: {
           totalItems: total,
           totalPages,
@@ -1182,21 +1199,30 @@ const setFeaturedProperties = asyncHandler(async (req, res, next) => {
 const getFeaturedProperties = asyncHandler(async (req, res, next) => {
   const limit = Math.min(parseInt(req.query.limit || "6", 10), 30);
 
+  // Fetch the content for the featured section (title, subtitle)
   const content = await featuredCms.findOne();
 
+  // Fetch the featured properties
   const items = await Property.find({ isFeatured: true })
     .select(
-      "propertyName price city state media propertyType listingType bedrooms bathrooms areaInSqMeter featuredOrder featuredAt"
+      "propertyName price city state media propertyType listingType bedrooms bathrooms areaInSqMeter featuredOrder featuredAt favourites"
     )
     .sort({ featuredOrder: 1, featuredAt: -1, createdAt: -1 })
     .limit(limit)
     .lean();
 
+  // Check if each property is a favorite for the logged-in user
+  const userId = req.userId; // Assume this is set via authentication middleware
+  const itemsWithFavorites = items.map((property) => {
+    const isFavorite = property.favourites.includes(userId);
+    return { ...property, isFavorite };
+  });
+
   return res.status(200).json(
     new apiSuccess(200, "Successfully extracted featured section", {
       title: content?.title,
       subtitle: content?.subtitle,
-      items,
+      items: itemsWithFavorites,
     })
   );
 });
@@ -1206,10 +1232,9 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
   const bgImg = req.file;
   const categoryId = req.params.categoryId;
 
-  console.log(section_title, section_sub_title);
-
   let createdCategorySection = null;
 
+  // Validate inputs early for section updates
   if (section_title || section_sub_title) {
     const isExistedCategorySection = await categorySection.findOne();
 
@@ -1218,14 +1243,12 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
         section_title || isExistedCategorySection.title;
       isExistedCategorySection.subTitle =
         section_sub_title || isExistedCategorySection.subTitle;
-
       createdCategorySection = await isExistedCategorySection.save();
     } else {
       const newSection = new categorySection({
         title: section_title,
         subtitle: section_sub_title,
       });
-
       createdCategorySection = await newSection.save();
     }
 
@@ -1239,7 +1262,7 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // If no categoryId is provided, proceed with category creation
+  // Category creation and validation
   if (!categoryId) {
     // Validate category creation data
     if (!name || !title || !bgImg) {
@@ -1250,7 +1273,6 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
         );
     }
 
-    // Check if the category already exists by name
     const isExistedCategory = await Category.findOne({ name });
     if (isExistedCategory) {
       return next(new apiError(400, "Category already exists"));
@@ -1283,7 +1305,7 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
       })
     );
   } else {
-    // If categoryId is provided, proceed with category update
+    // Category update logic if categoryId is provided
     const existingCategory = await Category.findById(categoryId);
     if (!existingCategory) {
       return res.status(404).json(new apiError(404, "Category not found"));
