@@ -48,13 +48,18 @@ const addProperty = asyncHandler(async (req, res, next) => {
   } = req.body;
 
   const addressString = `${fullAddress}, ${city}, ${state}`;
+  if (!addressString.trim()) {
+    return next(new apiError(400, "Invalid address provided", null, false));
+  }
+
   const { lat, lng } = await geocodeAddress(addressString);
 
   if (!lat || !lng) {
     return next(
-      new apiError(400, "Invalid address or unable to geocode", null, false)
+      new apiError(400, "Unable to geocode the provided address", null, false)
     );
   }
+
 
   const files = req.files || {};
   const photoFiles = files.photos || [];
