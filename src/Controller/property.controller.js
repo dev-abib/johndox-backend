@@ -883,14 +883,17 @@ const toggleFavouriteListing = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Ensure userId is cast to ObjectId before comparison
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+
   const isFavourite = property.favourites?.some(
-    (id) => id.toString() === userId
+    (id) => id.toString() === userObjectId.toString()
   );
 
   if (isFavourite) {
-    property.favourites.pull(userId);
+    property.favourites.pull(userObjectId); 
   } else {
-    property.favourites.push(userId);
+    property.favourites.push(userObjectId);
   }
 
   await property.save();
