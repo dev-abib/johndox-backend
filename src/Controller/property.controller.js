@@ -50,6 +50,12 @@ const addProperty = asyncHandler(async (req, res, next) => {
   const addressString = `${fullAddress}, ${city}, ${state}`;
   const { lat, lng } = await geocodeAddress(addressString);
 
+  if (!lat || !lng) {
+    return next(
+      new apiError(400, "Invalid address or unable to geocode", null, false)
+    );
+  }
+
   const files = req.files || {};
   const photoFiles = files.photos || [];
   const videoFiles = files.video || [];

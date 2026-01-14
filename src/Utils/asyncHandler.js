@@ -9,11 +9,11 @@ const asyncHandler = (fun = () => {}) => {
       await fun(req, res, next);
     } catch (error) {
       console.log(error);
-      return next(new apiError(500, "External server error", error, false));
+      return next(new apiError(500, "External server error", null, false));
     }
   };
 };
 
 module.exports = {
-  asyncHandler,
-};
+  asyncHandler
+}
