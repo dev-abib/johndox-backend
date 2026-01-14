@@ -84,6 +84,8 @@ const getSellerHero = asyncHandler(async (req, res, next) => {
     );
 });
 
+
+
 module.exports = {
   upsertSellerHero,
   getSellerHero,

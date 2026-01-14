@@ -60,7 +60,6 @@ const addProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
-
   const files = req.files || {};
   const photoFiles = files.photos || [];
   const videoFiles = files.video || [];
@@ -902,7 +901,7 @@ const toggleFavouriteListing = asyncHandler(async (req, res, next) => {
   );
 
   if (isFavourite) {
-    property.favourites.pull(userObjectId); 
+    property.favourites.pull(userObjectId);
   } else {
     property.favourites.push(userObjectId);
   }
