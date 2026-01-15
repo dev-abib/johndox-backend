@@ -23,6 +23,7 @@ const {
   whyChooseUsSection,
 } = require("../Schema/why.choose.us.section.cms.schema");
 const { whyChooseUsItems } = require("../Schema/why.choose.items.schema");
+const axios = require("axios");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -56,7 +57,68 @@ const addProperty = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Invalid address provided", null, false));
   }
 
-  const { lat, lng } = await geocodeAddress(addressString);
+  const key = process.env.LOCATIONIQ_KEY;
+  if (!key) return next(new apiError(500, "No Location key provided"));
+
+  const url = "https://us1.locationiq.com/v1/search";
+
+  const response = await axios
+    .get(url, {
+      params: {
+        key,
+        q: fullAddress,
+        format: "json",
+        limit: 1,
+        addressdetails: 1,
+        normalizecity: 1,
+      },
+      timeout: 10000,
+    })
+    .catch((error) => {
+      if (error.response) {
+        return next(
+          new apiError(
+            error.response.status,
+            `${error.response.data.error} address` ||
+              "Geocoding request failed.",
+            null,
+            false
+          )
+        );
+      } else if (error.request) {
+        return next(
+          new apiError(
+            500,
+            "Network error or no response from the geocoding service.",
+            null,
+            false
+          )
+        );
+      } else {
+        return next(
+          new apiError(
+            500,
+            error.message || "An unknown error occurred during geocoding.",
+            null,
+            false
+          )
+        );
+      }
+    });
+
+  if (!response?.data || response.data.length === 0) {
+    return next(
+      new apiError(400, "Unable to geocode the provided address", null, false)
+    );
+  }
+
+  const lat = Number(response.data[0].lat);
+  const lng = Number(response.data[0].lon);
+
+  // Validate lat and lng
+  if (!lat || !lng) {
+    return next(new apiError(401, "Address not found."));
+  }
 
   if (!lat || !lng) {
     return next(
@@ -1584,9 +1646,7 @@ const deleteWhyChooseItem = asyncHandler(async (req, res, next) => {
     return next(new apiError(500, "Can't delete item at the moment"));
   }
 
-  res
-    .status(200)
-    .json(new apiSuccess(200, "Item deleted successfully"));
+  res.status(200).json(new apiSuccess(200, "Item deleted successfully"));
 });
 
 const getWhyChooseUs = asyncHandler(async (req, res) => {
