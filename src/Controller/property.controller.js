@@ -1426,29 +1426,51 @@ const deleteCategory = asyncHandler(async (req, res, next) => {
 });
 
 const createUpdateWhyChooseSection = asyncHandler(async (req, res, next) => {
-  const { sectionTitle, sectionSubtitle } = req.body;
-
-  if (!sectionTitle || !sectionSubtitle) {
-    return next(new apiError(400, "Section title and subtitle are required"));
-  }
+  const { sectionTitle, sectionSubTitle } = req.body;
 
   let section = await whyChooseUsSection.findOne();
 
   if (!section) {
-    section = new serviceSection({
+    // Create → both required
+    if (!sectionTitle || !sectionSubTitle) {
+      return next(
+        new apiError(
+          400,
+          "Both title and subtitle are required when creating the section"
+        )
+      );
+    }
+    section = new whyChooseUsSection({
       sectionTitle,
-      sectionSubtitle,
+      sectionSubTitle,
     });
   } else {
-    section.sectionTitle = sectionTitle || section.sectionTitle;
-    section.sectionSubtitle = sectionSubtitle || section.sectionSubtitle;
+    // Update → at least one field should be provided
+    if (!sectionTitle && !sectionSubTitle) {
+      return next(
+        new apiError(
+          400,
+          "At least one field (title or subtitle) must be provided to update"
+        )
+      );
+    }
+
+    if (sectionTitle !== undefined) section.sectionTitle = sectionTitle;
+    if (sectionSubTitle !== undefined)
+      section.sectionSubTitle = sectionSubTitle;
   }
 
-  const savedSection = await section.save();
+  const saved = await section.save();
+
+  const isNew = !section._id;
   res
-    .status(200)
+    .status(isNew ? 201 : 200)
     .json(
-      new apiSuccess(200, "Section created/updated successfully", savedSection)
+      new apiSuccess(
+        isNew ? 201 : 200,
+        isNew ? "Section created successfully" : "Section updated successfully",
+        saved
+      )
     );
 });
 
@@ -1501,7 +1523,10 @@ const updateWhyChooseUsItems = asyncHandler(async (req, res, next) => {
 
   const iconImg = req?.file;
 
-  const itemId = req.params;
+  console.log(title, shortDescription, iconImg);
+
+  const { itemId } = req.params;
+  console.log(itemId);
 
   const item = await whyChooseUsItems.findById(itemId);
 
@@ -1509,7 +1534,7 @@ const updateWhyChooseUsItems = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "item not found , please try again later"));
   }
 
-  if (!title || !shortDescription || !iconImg) {
+  if (!title && !shortDescription && !iconImg) {
     return next(
       new apiError(
         400,
@@ -1561,13 +1586,13 @@ const deleteWhyChooseItem = asyncHandler(async (req, res, next) => {
 
   res
     .status(200)
-    .json(new apiSuccess(200, "Item deleted successfully", updatedSection));
+    .json(new apiSuccess(200, "Item deleted successfully"));
 });
 
 const getWhyChooseUs = asyncHandler(async (req, res) => {
   const section = await whyChooseUsSection.findOne();
 
-  const items = whyChooseUsItems.find();
+  const items = await whyChooseUsItems.find();
 
   if (!section) {
     return res.status(404).json(new apiError(404, "Section not found"));
@@ -1699,5 +1724,4 @@ module.exports = {
   updateWhyChooseUsItems,
   deleteWhyChooseItem,
   getWhyChooseUs,
-  
 };
