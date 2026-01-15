@@ -19,6 +19,10 @@ const { serviceSection } = require("../Schema/section.schema");
 const {
   listPropertySection,
 } = require("../Schema/list.property.section.schema");
+const {
+  whyChooseUsSection,
+} = require("../Schema/why.choose.us.section.cms.schema");
+const { whyChooseUsItems } = require("../Schema/why.choose.items.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -1421,31 +1425,23 @@ const deleteCategory = asyncHandler(async (req, res, next) => {
     .json(new apiError(200, "Successfully deleted category ", deletedCategory));
 });
 
-const createOrUpdateSection = asyncHandler(async (req, res, next) => {
-  const { sectionTitle, sectionSubtitle, items } = req.body;
+const createUpdateWhyChooseSection = asyncHandler(async (req, res, next) => {
+  const { sectionTitle, sectionSubtitle } = req.body;
 
   if (!sectionTitle || !sectionSubtitle) {
     return next(new apiError(400, "Section title and subtitle are required"));
   }
 
-  let section = await serviceSection.findOne();
+  let section = await whyChooseUsSection.findOne();
 
   if (!section) {
     section = new serviceSection({
       sectionTitle,
       sectionSubtitle,
-      items: items || [],
     });
   } else {
-    section.sectionTitle = sectionTitle;
-    section.sectionSubtitle = sectionSubtitle;
-
-    if (items !== undefined) {
-      if (!Array.isArray(items)) {
-        return next(new apiError(400, "Items must be an array if provided"));
-      }
-      section.items = items;
-    }
+    section.sectionTitle = sectionTitle || section.sectionTitle;
+    section.sectionSubtitle = sectionSubtitle || section.sectionSubtitle;
   }
 
   const savedSection = await section.save();
@@ -1456,77 +1452,133 @@ const createOrUpdateSection = asyncHandler(async (req, res, next) => {
     );
 });
 
-const addOrUpdateItems = asyncHandler(async (req, res, next) => {
-  const { items } = req.body;
+const addWhyChooseUsItems = asyncHandler(async (req, res, next) => {
+  const { title, shortDescription } = req.body;
 
-  // Validate that items is an array
-  if (!items || !Array.isArray(items)) {
-    return next(new apiError(400, "Items array is required"));
+  const iconImg = req?.file;
+
+  if (!title) {
+    return next(new apiError(400, "Item title is required", null));
   }
 
-  // Validate each item to ensure it has the required fields
-  for (const item of items) {
-    if (!item.title || !item.description || !item.icon) {
-      return next(
-        new apiError(400, "Each item must have title, description, and icon")
-      );
-    }
+  if (!shortDescription) {
+    return next(new apiError(400, "Item title is required", null));
   }
 
-  // Find the section and update items
-  const section = await serviceSection.findOne();
-  if (!section) {
-    return next(new apiError(404, "Section not found"));
+  if (!iconImg) {
+    return next(new apiError(400, "Item title is required", null));
   }
 
-  section.items = items;
+  const uploadResult = await uploadCloudinary(
+    iconImg.buffer,
+    "cms/why-choose/icons"
+  );
+  if (!uploadResult?.secure_url) {
+    return res.status(500).json(new apiError(500, "icon upload filed"));
+  }
 
-  const updatedSection = await section.save();
+  const newItem = new whyChooseUsItems({
+    title,
+    shortDescription,
+    iconImg: uploadResult.secure_url,
+  });
+
+  const savedItem = await newItem.save();
+
+  if (!savedItem) {
+    return next(
+      new apiError(500, "can't save item at the moment, please try again later")
+    );
+  }
 
   res
     .status(200)
-    .json(
-      new apiSuccess(200, "Items added/updated successfully", updatedSection)
-    );
+    .json(new apiSuccess(200, "Item added successfully", savedItem));
 });
 
-const deleteItemFromSection = asyncHandler(async (req, res, next) => {
+const updateWhyChooseUsItems = asyncHandler(async (req, res, next) => {
+  const { title, shortDescription } = req.body;
+
+  const iconImg = req?.file;
+
+  const itemId = req.params;
+
+  const item = await whyChooseUsItems.findById(itemId);
+
+  if (!item) {
+    return next(new apiError(400, "item not found , please try again later"));
+  }
+
+  if (!title || !shortDescription || !iconImg) {
+    return next(
+      new apiError(
+        400,
+        "Nothing to update please , update at least one field ",
+        null
+      )
+    );
+  }
+
+  item.title = title || item.title;
+  item.shortDescription = shortDescription || item.shortDescription;
+
+  if (iconImg) {
+    if (item.iconImg) {
+      const isDeleted = await deleteCloudinaryAsset(item.iconImg);
+      if (!isDeleted) {
+        return next(new apiError(500, "Error deleting icon image"));
+      }
+    }
+
+    const uploadResult = await uploadCloudinary(
+      iconImg.buffer,
+      "cms/why-choose/icons"
+    );
+    if (!uploadResult?.secure_url) {
+      return next(new apiError(500, "Icon upload failed"));
+    }
+
+    item.iconImg = uploadResult.secure_url;
+  }
+
+  await item.save();
+
+  res.status(200).json(new apiSuccess(200, "Item added successfully", item));
+});
+
+const deleteWhyChooseItem = asyncHandler(async (req, res, next) => {
   const { itemId } = req.params;
 
   if (!itemId) {
     return next(new apiError(400, "Item ID is required"));
   }
 
-  // Find the section
-  const section = await serviceSection.findOne();
-  if (!section) {
-    return next(new apiError(404, "Section not found"));
-  }
+  const isDeleted = await whyChooseUsItems.findByIdAndDelete(itemId);
 
-  // Find and remove the item
-  const item = section.items.id(itemId);
-  if (!item) {
-    return next(new apiError(404, "Item not found"));
+  if (!isDeleted) {
+    return next(new apiError(500, "Can't delete item at the moment"));
   }
-
-  item.remove();
-  const updatedSection = await section.save();
 
   res
     .status(200)
     .json(new apiSuccess(200, "Item deleted successfully", updatedSection));
 });
 
-const getSectionData = asyncHandler(async (req, res) => {
-  const section = await serviceSection.findOne();
+const getWhyChooseUs = asyncHandler(async (req, res) => {
+  const section = await whyChooseUsSection.findOne();
+
+  const items = whyChooseUsItems.find();
 
   if (!section) {
     return res.status(404).json(new apiError(404, "Section not found"));
   }
 
-  res
-    .status(200)
-    .json(new apiSuccess(200, "Section retrieved successfully", section));
+  res.status(200).json(
+    new apiSuccess(200, "Section retrieved successfully", {
+      section: section,
+      items: items,
+    })
+  );
 });
 
 const upsertListPropertySection = asyncHandler(async (req, res, next) => {
@@ -1637,13 +1689,15 @@ module.exports = {
   upsertCategory,
   getCategorySection,
   deleteCategory,
-  createOrUpdateSection,
-  addOrUpdateItems,
-  deleteItemFromSection,
-  getSectionData,
   upsertListPropertySection,
   getListPropertySections,
   loanEstimator,
   updateProperty,
   deleteProperty,
+  addWhyChooseUsItems,
+  createUpdateWhyChooseSection,
+  updateWhyChooseUsItems,
+  deleteWhyChooseItem,
+  getWhyChooseUs,
+  
 };

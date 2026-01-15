@@ -5,7 +5,6 @@ const { uploadMedia } = require("../../middleware/multer.middleware");
 const {
   addProperty,
   getMyProperty,
-  getAllproperties,
   getAllProperties,
   requestATour,
   toggleFavouriteListing,
@@ -21,17 +20,16 @@ const {
   upsertCategory,
   getCategorySection,
   deleteCategory,
-  createServiceSection,
-  getSectionData,
-  deleteItemFromSection,
-  updateItemsInSection,
-  createOrUpdateSection,
-  addOrUpdateItems,
   upsertListPropertySection,
   getListPropertySections,
   loanEstimator,
   updateProperty,
   deleteProperty,
+  createUpdateWhyChooseSection,
+  addWhyChooseUsItems,
+  updateWhyChooseUsItems,
+  getWhyChooseUs,
+  deleteWhyChooseItem,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -104,16 +102,26 @@ router.route("/get-category-section").get(getCategorySection);
 
 router.route("/delete-category/:categoryId").delete(deleteCategory);
 
-router.route("/create-or-update-section").post(createOrUpdateSection);
+router.route("/upsert-why-choose-us").post(createUpdateWhyChooseSection);
 
 // Add or Update Items in the Section
-router.route("/add-or-update-items").post(addOrUpdateItems);
+router
+  .route("/add-why-choose-featured-items")
+  .post(uploadMedia.single("iconImg"), addWhyChooseUsItems);
 
 // Delete an Item from the Section by itemId
-router.route("/delete-item/:itemId").delete(deleteItemFromSection);
+router
+  .route("/delete-why-choose-featured-items/:itemId")
+  .delete(deleteWhyChooseItem);
+
+// update items
+
+router
+  .route("/update-why-choose-featured-items/:itemId")
+  .post(uploadMedia.single("iconImg"), updateWhyChooseUsItems);
 
 // Get the Section Data
-router.route("/section-service-section").get(getSectionData);
+router.route("/get-why-choose-us-section").get(getWhyChooseUs);
 
 router.post("/upsert-list-property-section", upsertListPropertySection);
 

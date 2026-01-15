@@ -17,7 +17,8 @@ const whyChooseUsSectionSchema = new Schema(
 );
 
 const whyChooseUsSection =
-  models.whyChooseUsSectionSchema || model("whyChooseUsSection");
+  models.whyChooseUsSectionSchema ||
+  model("whyChooseUsSection", whyChooseUsSectionSchema);
 
 module.exports = {
   whyChooseUsSection,
