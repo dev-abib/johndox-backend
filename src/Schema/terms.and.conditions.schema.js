@@ -2,21 +2,20 @@ const mongoose = require("mongoose");
 
 const { model, models, Schema } = mongoose;
 
-const termsAndConditionSchema = new Schema(
+const termsAndConditionsSchema = new Schema(
   {
-    title: {
+    pageTitle: {
       type: String,
-      required: true,
     },
-    features: [
+    sections: [
       {
         title: {
           type: String,
-          required: true,
+          required: [true, "Section title is required"],
         },
-        description: {
+        content: {
           type: String,
-          required: true,
+          required: [true, "Content is required"],
         },
       },
     ],
@@ -26,8 +25,8 @@ const termsAndConditionSchema = new Schema(
   }
 );
 
-const termsAndCondition =
-  models.termsAndCondition ||
-  model("termsAndCondition", termsAndConditionSchema);
+const TermsAndCondition =
+  models.TermsAndCondition ||
+  model("TermsAndCondition", termsAndConditionsSchema);
 
-module.exports = { termsAndConditionSchema };
+module.exports = { TermsAndCondition };

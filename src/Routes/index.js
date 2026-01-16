@@ -7,6 +7,7 @@ const userAuthRoutes = require("./Api/user.auth.api");
 const messageRoutes = require("./Api/message.api");
 const propertyRoutes = require("./Api/property.api");
 const sellerCmsRoutes = require("./Api/seller.cms.api");
+const commonCmsRoutes = require("./Api/common.cms.api");
 
 const { apiError } = require("../Utils/api.error");
 const { asyncHandler } = require("../Utils/asyncHandler");
@@ -28,6 +29,7 @@ router.use(process.env.API_VERSION, userAuthRoutes);
 router.use(process.env.API_VERSION, messageRoutes);
 router.use(process.env.API_VERSION, propertyRoutes);
 router.use(process.env.API_VERSION, sellerCmsRoutes);
+router.use(process.env.API_VERSION , commonCmsRoutes);
 
 router.use(
   process.env.API_VERSION,
