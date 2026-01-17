@@ -456,8 +456,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
-
-
   const files = req.files || {};
   const photoFiles = files.photos || [];
   const videoFiles = files.video || [];
