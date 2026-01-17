@@ -14,6 +14,8 @@ const { Message } = require("./src/Schema/message.schema.js");
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+app.set("trust proxy", 1);
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
