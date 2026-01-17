@@ -1,5 +1,7 @@
-const { uploadCloudinary } = require("../Helpers/uploadCloudinary");
+const { uploadCloudinary, deleteCloudinaryAsset } = require("../Helpers/uploadCloudinary");
 const { sellerHero } = require("../Schema/seller.hero.schema");
+const { whySellItems } = require("../Schema/why.sell.items.schema");
+const { whySellWithTerraLink } = require("../Schema/why.sell.with.terralink.cms.schema");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
@@ -88,7 +90,7 @@ const getSellerHero = asyncHandler(async (req, res, next) => {
 const createUpdateWhySellWithUs = asyncHandler(async (req, res, next) => {
   const { sectionTitle, sectionSubTitle } = req.body;
 
-  let section = await whyChooseUsSection.findOne();
+  let section = await whySellWithTerraLink.findOne();
 
   if (!section) {
     // Create → both required
@@ -100,7 +102,7 @@ const createUpdateWhySellWithUs = asyncHandler(async (req, res, next) => {
         )
       );
     }
-    section = new whyChooseUsSection({
+    section = new whySellWithTerraLink({
       sectionTitle,
       sectionSubTitle,
     });
@@ -153,13 +155,13 @@ const addWhyWhySellWithUsItems = asyncHandler(async (req, res, next) => {
 
   const uploadResult = await uploadCloudinary(
     iconImg.buffer,
-    "cms/why-choose/icons"
+    "cms/why-sell-with-us/icons"
   );
   if (!uploadResult?.secure_url) {
     return res.status(500).json(new apiError(500, "icon upload filed"));
   }
 
-  const newItem = new whyChooseUsItems({
+  const newItem = new whySellItems({
     title,
     shortDescription,
     iconImg: uploadResult.secure_url,
@@ -188,7 +190,7 @@ const updateWhySellWithUsItems = asyncHandler(async (req, res, next) => {
   const { itemId } = req.params;
   console.log(itemId);
 
-  const item = await whyChooseUsItems.findById(itemId);
+  const item = await whySellItems.findById(itemId);
 
   if (!item) {
     return next(new apiError(400, "item not found , please try again later"));
@@ -217,7 +219,7 @@ const updateWhySellWithUsItems = asyncHandler(async (req, res, next) => {
 
     const uploadResult = await uploadCloudinary(
       iconImg.buffer,
-      "cms/why-choose/icons"
+      "cms/why-sell-with-us/icons"
     );
     if (!uploadResult?.secure_url) {
       return next(new apiError(500, "Icon upload failed"));
@@ -238,7 +240,16 @@ const deleteWhySellWithUsItem = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Item ID is required"));
   }
 
-  const isDeleted = await whyChooseUsItems.findByIdAndDelete(itemId);
+  const item = await whySellItems.findById(itemId);
+
+  if (item.iconImg) {
+    const isDeleted = await deleteCloudinaryAsset(item.iconImg);
+    if (!isDeleted) {
+      return next(new apiError(500, "Error deleting icon image"));
+    }
+  }
+
+  const isDeleted = await whySellItems.findByIdAndDelete(itemId);
 
   if (!isDeleted) {
     return next(new apiError(500, "Can't delete item at the moment"));
@@ -248,9 +259,9 @@ const deleteWhySellWithUsItem = asyncHandler(async (req, res, next) => {
 });
 
 const getWhySellWithUs = asyncHandler(async (req, res) => {
-  const section = await whyChooseUsSection.findOne();
+  const section = await whySellWithTerraLink.findOne();
 
-  const items = await whyChooseUsItems.find();
+  const items = await whySellItems.find();
 
   if (!section) {
     return res.status(404).json(new apiError(404, "Section not found"));
@@ -269,4 +280,9 @@ const getWhySellWithUs = asyncHandler(async (req, res) => {
 module.exports = {
   upsertSellerHero,
   getSellerHero,
+  createUpdateWhySellWithUs,
+  addWhyWhySellWithUsItems,
+  updateWhySellWithUsItems,
+  deleteWhySellWithUsItem,
+  getWhySellWithUs,
 };

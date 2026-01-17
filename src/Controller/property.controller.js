@@ -1640,6 +1640,15 @@ const deleteWhyChooseItem = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Item ID is required"));
   }
 
+  const item = await whySellItems.findById(itemId);
+
+  if (item.iconImg) {
+    const isDeleted = await deleteCloudinaryAsset(item.iconImg);
+    if (!isDeleted) {
+      return next(new apiError(500, "Error deleting icon image"));
+    }
+  }
+
   const isDeleted = await whyChooseUsItems.findByIdAndDelete(itemId);
 
   if (!isDeleted) {
