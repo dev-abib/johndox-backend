@@ -311,14 +311,12 @@ const updateProperty = asyncHandler(async (req, res, next) => {
 
   const { propertyId } = req.params;
 
-  // Fetch the property by ID
   const property = await Property.findById(propertyId);
 
   if (!property) {
     return next(new apiError(404, "Property not found", null, false));
   }
 
-  // Ensure the property belongs to the logged-in user
   if (property.author.toString() !== decodedData?.userData?.userId) {
     return next(
       new apiError(
@@ -347,7 +345,7 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     amenities,
     category,
     deleteImages = [],
-    deleteVideos = [],
+    // ✅ deleteVideos removed
   } = req.body;
 
   let deleteImagesArray = deleteImages;
@@ -359,22 +357,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
         new apiError(
           400,
           "Invalid deleteImages format, must be a JSON array",
-          null,
-          false
-        )
-      );
-    }
-  }
-
-  let deleteVideosArray = deleteVideos;
-  if (typeof deleteVideos === "string") {
-    try {
-      deleteVideosArray = JSON.parse(deleteVideos);
-    } catch (err) {
-      return next(
-        new apiError(
-          400,
-          "Invalid deleteVideos format, must be a JSON array",
           null,
           false
         )
@@ -445,7 +427,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
   const lat = Number(response.data[0].lat);
   const lng = Number(response.data[0].lon);
 
-  // Validate lat and lng
   if (!lat || !lng) {
     return next(new apiError(401, "Address not found."));
   }
@@ -462,7 +443,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
 
   const errors = {};
 
-  // Validation only for fields that are provided
   if (price && isNaN(price)) errors.price = "Price must be a number";
   if (bedrooms && isNaN(bedrooms))
     errors.bedrooms = "Bedrooms must be a number";
@@ -480,16 +460,16 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Validation error", errors, false));
   }
 
-  // Normalize amenities to array if it's not already
   const normalizedAmenities = Array.isArray(amenities)
     ? amenities
     : amenities
-    ? [amenities]
-    : [];
+      ? [amenities]
+      : [];
 
   let updatedImages = [
     ...(property.media.filter((m) => m.fileType === "image") || []),
   ];
+
   let updatedVideos = [
     ...(property.media.filter((m) => m.fileType === "video") || []),
   ];
@@ -498,10 +478,8 @@ const updateProperty = asyncHandler(async (req, res, next) => {
   if (Array.isArray(deleteImagesArray) && deleteImagesArray.length > 0) {
     try {
       for (const imageUrl of deleteImagesArray) {
-        // Reuse your helper: deleteCloudinaryAsset expects full URL
         const result = await deleteCloudinaryAsset(imageUrl);
         if (result) {
-          // Remove the deleted image from the local images array
           updatedImages = updatedImages.filter((img) => img.url !== imageUrl);
         }
       }
@@ -513,27 +491,7 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // Delete selected videos from Cloudinary
-  if (Array.isArray(deleteVideosArray) && deleteVideosArray.length > 0) {
-    try {
-      for (const videoUrl of deleteVideosArray) {
-        // Reuse your helper: deleteCloudinaryAsset expects full URL
-        const result = await deleteCloudinaryAsset(videoUrl);
-        if (result) {
-          // Remove the deleted video from the local videos array
-          updatedVideos = updatedVideos.filter((vid) => vid.url !== videoUrl);
-        }
-      }
-    } catch (err) {
-      console.error("Error deleting videos from Cloudinary:", err);
-      return next(
-        new apiError(500, "Failed to delete old videos", null, false)
-      );
-    }
-  }
-
   // Upload new files (photos and videos)
-  const media = [];
 
   // Upload new photos
   for (const file of photoFiles) {
@@ -544,13 +502,31 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     updatedImages.push({ url: result.secure_url, fileType: "image" });
   }
 
-  // Upload new videos
-  for (const file of videoFiles) {
+  // ✅ SINGLE VIDEO LOGIC:
+  // If user uploads a new video, delete the previous one and replace it.
+  if (videoFiles.length > 0) {
+    // Delete existing video if any
+    if (updatedVideos.length > 0) {
+      try {
+        await deleteCloudinaryAsset(updatedVideos[0].url);
+      } catch (err) {
+        console.error("Error deleting video from Cloudinary:", err);
+        return next(
+          new apiError(500, "Failed to delete old video", null, false)
+        );
+      }
+    }
+
+    // Upload the new video (first one only)
+    const file = videoFiles[0];
     const result = await uploadCloudinary(file.buffer, "property/media/videos");
+
     if (!result?.secure_url) {
       return next(new apiError(500, "Failed to upload new video", null, false));
     }
-    updatedVideos.push({ url: result.secure_url, fileType: "video" });
+
+    // Replace with the new video
+    updatedVideos = [{ url: result.secure_url, fileType: "video" }];
   }
 
   // Combine images and videos
@@ -585,6 +561,7 @@ const updateProperty = asyncHandler(async (req, res, next) => {
   property.amenities =
     normalizedAmenities.length > 0 ? normalizedAmenities : property.amenities;
   property.media = updatedMedia.length > 0 ? updatedMedia : property.media;
+
   property.category = category
     ? (await Category.findOne({ name: category }))._id
     : property.category;
@@ -603,6 +580,7 @@ const updateProperty = asyncHandler(async (req, res, next) => {
       new apiSuccess(200, "Property updated successfully", property, false)
     );
 });
+
 
 const getMyProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
