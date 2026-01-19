@@ -1,19 +1,23 @@
+// routes/terms.and.conditions.routes.js
 const express = require("express");
-const { authguard } = require("../../middleware/authGuard");
 const {
-  updateSection,
-  deleteSection,
   getTermsAndConditionsCms,
-  addTermsAndConditionsCms,
+  upsertTermsAndConditionsCms,
+  addSection,
+  updateSectionById,
+  deleteSectionById,
 } = require("../../Controller/common.cms.controller");
+
 const router = express.Router();
 
-router.route("/upsert-terms-and-conditions").post(addTermsAndConditionsCms);
+router.get("/get-terms-and-conditions", getTermsAndConditionsCms);
 
-router.route("/update-section/:title").put(updateSection);
+router.put("/upsert-terms-and-conditions", upsertTermsAndConditionsCms);
 
-router.route("/delete-section/:title").delete(deleteSection);
+router.post("/add-terms-and-conditions-sections", addSection);
 
-router.route("/get-terms-and-conditions").get(getTermsAndConditionsCms);
+router.put("/update-terms-and-conditions/:sectionId", updateSectionById);
+
+router.delete("/delete-terms-and-conditions/:sectionId", deleteSectionById);
 
 module.exports = router;
