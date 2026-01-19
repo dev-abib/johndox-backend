@@ -1969,33 +1969,38 @@ const convertCurrency = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Lempira amount cannot be negative"));
   }
 
-  const url = "https://api.frankfurter.app/latest?from=HNL&to=USD";
-
   let response;
   try {
-    response = await axios.get(url, { timeout: 10000 });
-    console.log(response);
+    response = await axios.get(
+      "https://open.er-api.com/v6/latest/HNL",
+      { timeout: 10000 }
+    );
   } catch (err) {
     return next(new apiError(502, "Currency service unavailable"));
   }
 
-  const rate = response?.data?.rates?.USD;
+  if (response?.data?.result !== "success") {
+    return next(new apiError(502, "Failed to fetch exchange rate"));
+  }
+
+  const rate = response.data?.rates?.USD;
 
   if (!rate) {
-    return next(new apiError(502, "Failed to fetch USD rate"));
+    return next(new apiError(502, "USD rate not available"));
   }
 
   const data = {
     lempira: amount,
     usd: Number((amount * rate).toFixed(2)),
-    rate,
-    convertedAt: response.data.date,
+    rate: Number(rate),
+    convertedAt: response.data.time_last_update_utc,
   };
 
   return res
     .status(200)
     .json(new apiSuccess(200, "Currency converted successfully", data));
 });
+
 
 module.exports = {
   addProperty,
