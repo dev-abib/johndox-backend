@@ -135,5 +135,7 @@ router.route("/get-single-property/:propertyId").get(getSingleProperty);
 
 router.route("/convert-hnl-to-usd").post(convertCurrency);
 
+router.route("/get-featured-properties").get(getFeaturedProperties)
+
 
 module.exports = router;
