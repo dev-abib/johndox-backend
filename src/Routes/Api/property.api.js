@@ -31,6 +31,7 @@ const {
   getWhyChooseUs,
   deleteWhyChooseItem,
   getSingleProperty,
+  convertCurrency,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -131,5 +132,8 @@ router.route("/list-property-sections").get(getListPropertySections);
 router.route("/price-estimator").post(loanEstimator);
 
 router.route("/get-single-property/:propertyId").get(getSingleProperty);
+
+router.route("/convert-hnl-to-usd").post(convertCurrency);
+
 
 module.exports = router;

@@ -1957,6 +1957,46 @@ const getSingleProperty = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Property details retrieved successfully", data));
 });
 
+const convertCurrency = asyncHandler(async (req, res, next) => {
+  const { lempira } = req.body;
+
+  if (lempira === undefined || isNaN(Number(lempira))) {
+    return next(new apiError(400, "Invalid lempira amount"));
+  }
+
+  const amount = Number(lempira);
+  if (amount < 0) {
+    return next(new apiError(400, "Lempira amount cannot be negative"));
+  }
+
+  const url = "https://api.frankfurter.app/latest?from=HNL&to=USD";
+
+  let response;
+  try {
+    response = await axios.get(url, { timeout: 10000 });
+    console.log(response);
+  } catch (err) {
+    return next(new apiError(502, "Currency service unavailable"));
+  }
+
+  const rate = response?.data?.rates?.USD;
+
+  if (!rate) {
+    return next(new apiError(502, "Failed to fetch USD rate"));
+  }
+
+  const data = {
+    lempira: amount,
+    usd: Number((amount * rate).toFixed(2)),
+    rate,
+    convertedAt: response.data.date,
+  };
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Currency converted successfully", data));
+});
+
 module.exports = {
   addProperty,
   getMyProperty,
@@ -1984,4 +2024,5 @@ module.exports = {
   deleteWhyChooseItem,
   getWhyChooseUs,
   getSingleProperty,
+  convertCurrency,
 };
