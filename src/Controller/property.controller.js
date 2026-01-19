@@ -129,7 +129,19 @@ const addProperty = asyncHandler(async (req, res, next) => {
 
   const files = req.files || {};
   const photoFiles = files.photos || [];
-  const videoFiles = files.video || [];
+  const videoFiles = Array.isArray(files?.video)
+    ? files.video
+    : files?.video
+      ? [files.video]
+      : [];
+
+  if (!videoFiles.length) {
+    return next(new apiError(400, "Please include the video with the request"));
+  }
+
+  if (videoFiles.length > 1) {
+    return next(new apiError(400, "You can add only one video"));
+  }
 
   const errors = {};
 
@@ -721,7 +733,6 @@ const deleteProperty = asyncHandler(async (req, res, next) => {
     );
 });
 
-
 const getAllProperties = asyncHandler(async (req, res, next) => {
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
   const limit = Math.min(
@@ -988,7 +999,6 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     )
   );
 });
-
 
 const requestATour = asyncHandler(async (req, res, next) => {
   const { phoneNumber, message, date, propertyId } = req.body;
