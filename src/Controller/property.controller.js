@@ -721,6 +721,7 @@ const deleteProperty = asyncHandler(async (req, res, next) => {
     );
 });
 
+
 const getAllProperties = asyncHandler(async (req, res, next) => {
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
   const limit = Math.min(
@@ -731,6 +732,7 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
 
   const filter = {};
 
+  // --- Search (propertyName / description)
   if (req.query.search) {
     const search = String(req.query.search).trim();
     if (search) {
@@ -742,18 +744,13 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     }
   }
 
-  if (req.query.propertyType) {
+  if (req.query.propertyType)
     filter.propertyType = String(req.query.propertyType).trim();
-  }
-
-  if (req.query.category) {
-    filter.category = String(req.query.category).trim();
-  }
-
-  if (req.query.listingType) {
+  if (req.query.category) filter.category = String(req.query.category).trim();
+  if (req.query.listingType)
     filter.listingType = String(req.query.listingType).trim();
-  }
 
+  // --- Location (city/state)
   if (req.query.location) {
     const location = String(req.query.location).trim();
     if (location) {
@@ -776,6 +773,7 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // --- Price range
   const minPriceRaw = req.query.minPrice;
   const maxPriceRaw = req.query.maxPrice;
 
@@ -800,46 +798,53 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     if (maxPrice !== undefined) filter.price.$lte = maxPrice;
   }
 
+  // --- Bedrooms
   if (
     req.query.bedrooms !== undefined &&
     String(req.query.bedrooms).trim() !== ""
   ) {
     const b = Number(req.query.bedrooms);
-    if (Number.isNaN(b))
+    if (Number.isNaN(b)) {
       return next(new apiError(400, "bedrooms must be a number", null, false));
+    }
     filter.bedrooms = b;
   } else if (
     req.query.minBedrooms !== undefined &&
     String(req.query.minBedrooms).trim() !== ""
   ) {
     const mb = Number(req.query.minBedrooms);
-    if (Number.isNaN(mb))
+    if (Number.isNaN(mb)) {
       return next(
         new apiError(400, "minBedrooms must be a number", null, false)
       );
+    }
     filter.bedrooms = { $gte: mb };
   }
 
+  // --- Bathrooms
   if (
     req.query.bathrooms !== undefined &&
     String(req.query.bathrooms).trim() !== ""
   ) {
     const b = Number(req.query.bathrooms);
-    if (Number.isNaN(b))
+    if (Number.isNaN(b)) {
       return next(new apiError(400, "bathrooms must be a number", null, false));
+    }
     filter.bathrooms = b;
   } else if (
     req.query.minBathrooms !== undefined &&
     String(req.query.minBathrooms).trim() !== ""
   ) {
     const mb = Number(req.query.minBathrooms);
-    if (Number.isNaN(mb))
+    if (Number.isNaN(mb)) {
       return next(
         new apiError(400, "minBathrooms must be a number", null, false)
       );
+    }
     filter.bathrooms = { $gte: mb };
   }
 
+  // --- Amenities ($all)
   if (req.query.amenities) {
     const amenitiesArr = Array.isArray(req.query.amenities)
       ? req.query.amenities
@@ -852,32 +857,31 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // --- Sorting
   const sortKey = String(req.query.sort || "newest")
     .trim()
     .toLowerCase();
-
   const sortMap = {
     newest: { createdAt: -1 },
     price_asc: { price: 1 },
     price_desc: { price: -1 },
     popular: { views: -1 },
   };
-
   const sort = sortMap[sortKey] || sortMap.newest;
 
+  // --- Fetch properties + total
   const [items, total] = await Promise.all([
-    Property.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+    Property.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: "author",
+        select: "firstName lastName email phoneNumber profilePicture",
+      })
+      .lean(),
     Property.countDocuments(filter),
   ]);
-
-  // Check if each property is a favorite for the logged-in user
-  const userId = req.userId; // Assume this is set via authentication middleware
-  const propertiesWithFavorites = items.map((property) => {
-    const isFavorite = property.favourites.includes(userId);
-    return { ...property, isFavorite };
-  });
-
-  const totalPages = Math.ceil(total / limit) || 1;
 
   if (total < 1) {
     return next(
@@ -885,12 +889,90 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // --- Favorite flag (safe)
+  const userId = req.userId ? String(req.userId) : null;
+
+  // --- Collect unique authorIds
+  const authorIds = [
+    ...new Set(
+      items
+        .map((p) => p?.author?._id)
+        .filter(Boolean)
+        .map((id) => String(id))
+    ),
+  ];
+
+  // --- Rating stats for all authors in one aggregation
+  let ratingMap = new Map(); // authorId -> { averageRating, ratingCount }
+
+  if (authorIds.length) {
+    const stats = await UserRating.aggregate([
+      {
+        $match: {
+          receiver: {
+            $in: authorIds.map((id) => new mongoose.Types.ObjectId(id)),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$receiver",
+          averageRating: { $avg: "$rating" },
+          ratingCount: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          averageRating: { $round: ["$averageRating", 1] },
+          ratingCount: 1,
+        },
+      },
+    ]);
+
+    ratingMap = new Map(
+      stats.map((s) => [
+        String(s._id),
+        {
+          averageRating: s.averageRating ?? 0,
+          ratingCount: s.ratingCount ?? 0,
+        },
+      ])
+    );
+  }
+
+  // --- Attach isFavorite + author.rating (avg + count)
+  const propertiesWithExtras = items.map((property) => {
+    const favArr = Array.isArray(property.favourites)
+      ? property.favourites
+      : [];
+    const isFavorite = userId
+      ? favArr.map(String).includes(String(userId))
+      : false;
+
+    const aId = property?.author?._id ? String(property.author._id) : null;
+    const rating = ratingMap.get(aId) || { averageRating: 0, ratingCount: 0 };
+
+    return {
+      ...property,
+      isFavorite,
+      author: property.author
+        ? {
+            ...property.author,
+            rating, // ✅ { averageRating, ratingCount }
+          }
+        : null,
+    };
+  });
+
+  const totalPages = Math.ceil(total / limit) || 1;
+
   return res.status(200).send(
     new apiSuccess(
       200,
       "Property listing retrieved successfully",
       {
-        items: propertiesWithFavorites,
+        items: propertiesWithExtras,
         pagination: {
           totalItems: total,
           totalPages,
@@ -906,6 +988,7 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     )
   );
 });
+
 
 const requestATour = asyncHandler(async (req, res, next) => {
   const { phoneNumber, message, date, propertyId } = req.body;
