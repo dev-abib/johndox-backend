@@ -24,6 +24,7 @@ const {
 } = require("../Schema/why.choose.us.section.cms.schema");
 const { whyChooseUsItems } = require("../Schema/why.choose.items.schema");
 const axios = require("axios");
+const { UserRating } = require("../Schema/user.rating.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -208,8 +209,8 @@ const addProperty = asyncHandler(async (req, res, next) => {
   const normalizedAmenities = Array.isArray(amenities)
     ? amenities
     : amenities
-    ? [amenities]
-    : [];
+      ? [amenities]
+      : [];
 
   const media = [];
 
@@ -455,7 +456,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
   if (areaInSqMeter && isNaN(areaInSqMeter))
     errors.areaInSqMeter = "Area in square meters must be a number";
 
-  // If any validation errors exist, return them
   if (Object.keys(errors).length > 0) {
     return next(new apiError(400, "Validation error", errors, false));
   }
@@ -580,7 +580,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
       new apiSuccess(200, "Property updated successfully", property, false)
     );
 });
-
 
 const getMyProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -1816,6 +1815,55 @@ const loanEstimator = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Price estimated successfully", esitmated_price));
 });
 
+const getSingleProperty = asyncHandler(async (req, res, next) => {
+  const { propertyId } = req.params;
+
+  const property = await Property.findById(propertyId).populate({
+    path: "author",
+    select: "firstName lastName email phoneNumber profilePicture",
+  });
+
+  if (!property) {
+    return next(new apiError(404, "Property not found"));
+  }
+
+  const authorId = property?.author?._id;
+
+  let rating = { averageRating: 0, ratingCount: 0 };
+
+  if (authorId) {
+    const stats = await UserRating.aggregate([
+      { $match: { receiver: new mongoose.Types.ObjectId(authorId) } },
+      {
+        $group: {
+          _id: "$receiver",
+          averageRating: { $avg: "$rating" },
+          ratingCount: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          averageRating: { $round: ["$averageRating", 1] },
+          ratingCount: 1,
+        },
+      },
+    ]);
+
+    if (stats.length) rating = stats[0];
+  }
+
+  const data = property.toObject();
+  data.author = {
+    ...data.author,
+    rating,
+  };
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Property details retrieved successfully", data));
+});
+
 module.exports = {
   addProperty,
   getMyProperty,
@@ -1842,4 +1890,5 @@ module.exports = {
   updateWhyChooseUsItems,
   deleteWhyChooseItem,
   getWhyChooseUs,
+  getSingleProperty,
 };

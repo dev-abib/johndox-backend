@@ -79,10 +79,11 @@ const userSchema = new Schema(
     },
     rating: {
       type: String,
+      ref: "UserRating",
       default: null,
     },
     identity_document: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
     activeListings: {
@@ -95,7 +96,7 @@ const userSchema = new Schema(
     },
     totalLeads: {
       type: Number,
-      default: 0, 
+      default: 0,
     },
     unreadMessages: {
       type: Number,

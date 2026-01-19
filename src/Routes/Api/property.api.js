@@ -30,6 +30,7 @@ const {
   updateWhyChooseUsItems,
   getWhyChooseUs,
   deleteWhyChooseItem,
+  getSingleProperty,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -128,5 +129,7 @@ router.post("/upsert-list-property-section", upsertListPropertySection);
 router.route("/list-property-sections").get(getListPropertySections);
 
 router.route("/price-estimator").post(loanEstimator);
+
+router.route("/get-single-property/:propertyId").get(getSingleProperty);
 
 module.exports = router;
