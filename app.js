@@ -29,7 +29,8 @@ app.use(
       "http://localhost:5173",
       "https://johndox-admin-dashboard.vercel.app",
       "http://localhost:3000",
-      "https://johndox-frontend.vercel.app"
+      "https://johndox-frontend.vercel.app",
+      "http://103.161.9.205:5173"
     
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
