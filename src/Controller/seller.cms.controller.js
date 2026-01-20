@@ -1,9 +1,14 @@
-const { uploadCloudinary, deleteCloudinaryAsset } = require("../Helpers/uploadCloudinary");
+const {
+  uploadCloudinary,
+  deleteCloudinaryAsset,
+} = require("../Helpers/uploadCloudinary");
 const { howItWorkItems } = require("../Schema/how.it.works.schema");
 const { howItWorksSection } = require("../Schema/how.it.works.section.schema");
 const { sellerHero } = require("../Schema/seller.hero.schema");
 const { whySellItems } = require("../Schema/why.sell.items.schema");
-const { whySellWithTerraLink } = require("../Schema/why.sell.with.terralink.cms.schema");
+const {
+  whySellWithTerraLink,
+} = require("../Schema/why.sell.with.terralink.cms.schema");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
@@ -87,7 +92,6 @@ const getSellerHero = asyncHandler(async (req, res, next) => {
       new apiSuccess(200, "Successfully extracted seller hero details", hero)
     );
 });
-
 
 const createUpdateWhySellWithUs = asyncHandler(async (req, res, next) => {
   const { sectionTitle, sectionSubTitle } = req.body;
@@ -181,7 +185,6 @@ const addWhyWhySellWithUsItems = asyncHandler(async (req, res, next) => {
     .status(200)
     .json(new apiSuccess(200, "Item added successfully", savedItem));
 });
-
 
 const updateWhySellWithUsItems = asyncHandler(async (req, res, next) => {
   const { title, shortDescription } = req.body;
@@ -278,15 +281,13 @@ const getWhySellWithUs = asyncHandler(async (req, res) => {
   );
 });
 
-
-
 const createUpdateHowItWorks = asyncHandler(async (req, res, next) => {
   const { sectionTitle, sectionSubTitle } = req.body;
 
   let section = await howItWorksSection.findOne();
+  const isNew = !section;
 
   if (!section) {
-    // Create → both required
     if (!sectionTitle || !sectionSubTitle) {
       return next(
         new apiError(
@@ -295,13 +296,13 @@ const createUpdateHowItWorks = asyncHandler(async (req, res, next) => {
         )
       );
     }
-    section = new whySellWithTerraLink({
+
+    section = new howItWorksSection({
       sectionTitle,
       sectionSubTitle,
     });
   } else {
-    // Update → at least one field should be provided
-    if (!sectionTitle && !sectionSubTitle) {
+    if (sectionTitle === undefined && sectionSubTitle === undefined) {
       return next(
         new apiError(
           400,
@@ -317,7 +318,6 @@ const createUpdateHowItWorks = asyncHandler(async (req, res, next) => {
 
   const saved = await section.save();
 
-  const isNew = !section._id;
   res
     .status(isNew ? 201 : 200)
     .json(
@@ -435,7 +435,6 @@ const deleteHowItWorksItem = asyncHandler(async (req, res, next) => {
 
   const item = await howItWorkItems.findById(itemId);
 
-
   if (item.iconImg) {
     const isDeleted = await deleteCloudinaryAsset(item.iconImg);
     if (!isDeleted) {
@@ -454,7 +453,6 @@ const deleteHowItWorksItem = asyncHandler(async (req, res, next) => {
 
 const getHowItWorks = asyncHandler(async (req, res) => {
   const section = await howItWorksSection.findOne();
-
   const items = await howItWorkItems.find();
 
   if (!section) {
@@ -463,12 +461,11 @@ const getHowItWorks = asyncHandler(async (req, res) => {
 
   res.status(200).json(
     new apiSuccess(200, "Section retrieved successfully", {
-      section: section,
-      items: items,
+      section,
+      items,
     })
   );
 });
-
 
 
 module.exports = {
@@ -483,6 +480,5 @@ module.exports = {
   addHowItWorksItems,
   updateHowItWorksItems,
   deleteHowItWorksItem,
-  getHowItWorks
-
+  getHowItWorks,
 };

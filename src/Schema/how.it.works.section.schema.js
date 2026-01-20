@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const { model, models, Schema } = mongoose;
 
-const howItWorksSectionSchema  = new Schema(
+const howItWorksSectionSchema = new Schema(
   {
     sectionTitle: {
       type: String,
