@@ -13,6 +13,8 @@ const {
   deleteHowItWorksItem,
   updateHowItWorksItems,
   getHowItWorks,
+  upsertSellerSubFooter,
+  getSellerSubFooter,
 } = require("../../Controller/seller.cms.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 
@@ -63,5 +65,9 @@ router
 
 // Get the Section Data
 router.route("/get-how-it-works-section").get(getHowItWorks);
+
+router.post("/upsert-seller-sub-footer", upsertSellerSubFooter);
+
+router.route("/get-seller-sub-footer").get(getSellerSubFooter);
 
 module.exports = router;

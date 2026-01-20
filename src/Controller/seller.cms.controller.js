@@ -5,6 +5,7 @@ const {
 const { howItWorkItems } = require("../Schema/how.it.works.schema");
 const { howItWorksSection } = require("../Schema/how.it.works.section.schema");
 const { sellerHero } = require("../Schema/seller.hero.schema");
+const { sellerSubFooter } = require("../Schema/sellers.sub.footer.scehma");
 const { whySellItems } = require("../Schema/why.sell.items.schema");
 const {
   whySellWithTerraLink,
@@ -467,6 +468,56 @@ const getHowItWorks = asyncHandler(async (req, res) => {
   );
 });
 
+const upsertSellerSubFooter = asyncHandler(async (req, res, next) => {
+  const { title, subtitle, extraTxt, btnTxt } = req.body;
+
+  if (!title || !subtitle) {
+    return next(new apiError(400, "Title and Subtitle are required"));
+  }
+
+  let section = await sellerSubFooter.findOne();
+
+  if (section) {
+    section.title = section.title || title;
+    section.subtitle = subtitle || section.subtitle;
+    section.extraTxt = extraTxt || section.extraTxt;
+    section.btnTxt = btnTxt || section.btnTxt;
+
+    const updatedSection = await section.save();
+    return res
+      .status(200)
+      .json(
+        new apiSuccess(200, "Section updated successfully", updatedSection)
+      );
+  } else {
+    const newSection = new sellerSubFooter({
+      title,
+      subtitle,
+      extraTxt,
+      btnTxt,
+    });
+
+    const createdSection = await newSection.save();
+    return res
+      .status(201)
+      .json(
+        new apiSuccess(201, "Section created successfully", createdSection)
+      );
+  }
+});
+
+const getSellerSubFooter = asyncHandler(async (req, res, next) => {
+  const section = await sellerSubFooter.findOne();
+
+  if (!section) {
+    return next(new apiError(404, "Section not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Section retrieved successfully", section));
+});
+
 
 module.exports = {
   upsertSellerHero,
@@ -481,4 +532,6 @@ module.exports = {
   updateHowItWorksItems,
   deleteHowItWorksItem,
   getHowItWorks,
+  upsertSellerSubFooter,
+  getSellerSubFooter,
 };
