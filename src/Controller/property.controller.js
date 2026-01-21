@@ -1799,13 +1799,13 @@ const deleteWhyChooseItem = asyncHandler(async (req, res, next) => {
   res.status(200).json(new apiSuccess(200, "Item deleted successfully"));
 });
 
-const getWhyChooseUs = asyncHandler(async (req, res) => {
+const getWhyChooseUs = asyncHandler(async (req, res, next) => {
   const section = await whyChooseUsSection.findOne();
 
   const items = await whyChooseUsItems.find();
 
   if (!section) {
-    return res.status(404).json(new apiError(404, "Section not found"));
+    return next(new apiError(404, "Section not found"));
   }
 
   res.status(200).json(
@@ -1971,10 +1971,9 @@ const convertCurrency = asyncHandler(async (req, res, next) => {
 
   let response;
   try {
-    response = await axios.get(
-      "https://open.er-api.com/v6/latest/HNL",
-      { timeout: 10000 }
-    );
+    response = await axios.get("https://open.er-api.com/v6/latest/HNL", {
+      timeout: 10000,
+    });
   } catch (err) {
     return next(new apiError(502, "Currency service unavailable"));
   }
@@ -2000,7 +1999,6 @@ const convertCurrency = asyncHandler(async (req, res, next) => {
     .status(200)
     .json(new apiSuccess(200, "Currency converted successfully", data));
 });
-
 
 module.exports = {
   addProperty,
