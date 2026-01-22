@@ -1072,7 +1072,7 @@ const requestATour = asyncHandler(async (req, res, next) => {
   const data = {
     buyerName: isExistedBuyer.firstName,
     buyerEmail: isExistedBuyer.email,
-    buyerPhone: isExistedBuyer.phoneNumber,
+    buyerPhone: phoneNumber,
     date: date,
     message: message,
     sellerName: isExistedProperty.author.firstName,
