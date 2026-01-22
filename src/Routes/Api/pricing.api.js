@@ -36,18 +36,19 @@ router.route("/delete-faq/:faqId").delete(deleteFaq);
 
 router.route("/get-faq").get(getFaqs);
 
-router.route("/add-plan").post(createPlan);
+router.post("/add-plan", createPlan);
 
-router.route("/get-all-plan").get(listPlans);
+router.get("/get-all-plan", listPlans);
 
-router.route("/get-single-plan/:planKey").get(getPlan);
+router.get("/get-single-plan/:planKey", getPlan);
 
-router.put("/update-plan/:planKey").put(updatePlan);
+router.put("/update-plan/:planKey", updatePlan);
 
-router.route("/sync-plan/:planKey").post(syncPlanToStripe);
+router.post("/sync-plan/:planKey", syncPlanToStripe);
 
-router.route("/update-plan-price/:planKey").post(adminUpdatePlanPrice);
+router.post("/update-plan-price/:planKey", adminUpdatePlanPrice);
 
-router.route("delete-plan:/planKey").delete(deletePlan);
+router.delete("/delete-plan/:planKey", deletePlan);
+
 
 module.exports = router;

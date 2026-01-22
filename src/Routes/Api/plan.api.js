@@ -9,11 +9,21 @@ const { createCheckoutSession, stripeWebhook } = require("../../Controller/billi
 
 const router = express.Router();
 
-router.route("/checkout").post(createCheckoutSession);
+router.post("/checkout", authguard, createCheckoutSession);
+router.get("/checkout/session/:sessionId", authguard, verifyCheckoutSession);
 
-router
-  .route("/webhook")
-  .post(express.raw({ type: "application/json" }), stripeWebhook);
+router.post("/portal", authguard, createCustomerPortalSession);
+
+router.post("/cancel", authguard, cancelSubscription);
+router.post("/resume", authguard, resumeSubscription);
+router.post("/change-plan", authguard, changePlan);
+
+router.post(
+  "/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhook
+);
+
 
 
 
