@@ -9,7 +9,7 @@ const planSchema = new Schema(
       unique: true,
       trim: true,
       lowercase: true,
-      match: /^[a-z0-9_-]+$/, // allows new keys like "pro_2026"
+      match: /^[a-z0-9_-]+$/, 
     },
     name: { type: String, required: true },
     description: { type: String, default: null },

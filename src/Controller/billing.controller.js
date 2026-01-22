@@ -1,14 +1,16 @@
+// src/Controller/billing.controller.js
+
 const Stripe = require("stripe");
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const { user: User } = require("../Schema/user.schema");
 const { plan: Plan } = require("../Schema/subscription.schema");
+const { StripeEvent } = require("../Schema/strip.event.schema");
 
 const { asyncHandler } = require("../Utils/asyncHandler");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
-
-const { StripeEvent } = require("../Schema/strip.event.schema");
+const { Payment } = require("../Schema/stripe.payment.schema");
 
 /** Helpers */
 const toDateFromUnix = (unixSeconds) =>
@@ -18,6 +20,39 @@ const getPriceIdForPlan = (plan, billingCycle) => {
   return billingCycle === "yearly"
     ? plan?.pricing?.yearly?.stripePriceId
     : plan?.pricing?.monthly?.stripePriceId;
+};
+
+// Save invoice to Payment collection for dashboard revenue
+const upsertPaymentFromInvoice = async (invoice) => {
+  try {
+    const u = await User.findOne({
+      "subscription.stripeSubscriptionId": invoice.subscription,
+    }).select("_id subscription");
+
+    if (!u) return;
+
+    const paidUnix = invoice.status_transitions?.paid_at || invoice.created; // unix seconds
+
+    await Payment.updateOne(
+      { stripeInvoiceId: invoice.id },
+      {
+        $setOnInsert: {
+          stripeInvoiceId: invoice.id,
+          stripeSubscriptionId: invoice.subscription,
+          userId: u._id,
+          amount: (invoice.amount_paid || 0) / 100, // cents -> dollars
+          currency: invoice.currency || "usd",
+          billingCycle: u.subscription?.billingCycle || "monthly",
+          planKey: u.subscription?.planKey || null,
+          paidAt: new Date(paidUnix * 1000),
+        },
+      },
+      { upsert: true }
+    );
+  } catch (e) {
+    // Do not crash webhook flow for payment logging
+    console.error("Payment upsert error:", e.message);
+  }
 };
 
 /**
@@ -44,7 +79,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "This plan is inactive"));
   }
 
-  // Free plan -> no Stripe checkout needed
+  // ✅ Free plan -> no Stripe checkout needed
   if (plan.isFree) {
     user.subscription = user.subscription || {};
     user.subscription.planKey = plan.key;
@@ -52,6 +87,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     user.subscription.status = "active";
     user.subscription.stripeSubscriptionId = null;
     user.subscription.currentPeriodEnd = null;
+    user.subscription.activatedAt = new Date();
     await user.save();
 
     return res.status(200).json(
@@ -68,7 +104,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
 
   user.subscription = user.subscription || {};
 
-  // Stripe Customer create
+  // ✅ Create Stripe customer if missing
   let customerId = user.subscription.stripeCustomerId;
   if (!customerId) {
     const customer = await stripe.customers.create({
@@ -81,7 +117,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     await user.save();
   }
 
-  // If user already has active/trialing subscription -> block new checkout
+  // ✅ Block checkout if user already has a subscription
   if (
     user.subscription.stripeSubscriptionId &&
     ["active", "trialing", "past_due"].includes(user.subscription.status)
@@ -99,7 +135,6 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
 
-    // Important: include session_id for success verification
     success_url: `${process.env.FRONTEND_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.FRONTEND_URL}/billing/cancel?session_id={CHECKOUT_SESSION_ID}`,
 
@@ -136,7 +171,7 @@ const verifyCheckoutSession = asyncHandler(async (req, res, next) => {
     expand: ["subscription", "payment_intent"],
   });
 
-  // Ensure session belongs to this user
+  // ✅ Ensure session belongs to this user
   const metaUserId = session.metadata?.userId;
   if (String(metaUserId) !== String(userId)) {
     return next(new apiError(403, "Forbidden (session mismatch)"));
@@ -223,20 +258,22 @@ const cancelSubscription = asyncHandler(async (req, res, next) => {
   const subId = user.subscription?.stripeSubscriptionId;
   if (!subId) return next(new apiError(400, "No active Stripe subscription"));
 
-  const updated = await stripe.subscriptions.update(subId, {
-    cancel_at_period_end: !immediately,
-  });
+  let updated;
 
   if (immediately) {
-    await stripe.subscriptions.cancel(subId);
+    updated = await stripe.subscriptions.cancel(subId);
+  } else {
+    updated = await stripe.subscriptions.update(subId, {
+      cancel_at_period_end: true,
+    });
   }
 
-  user.subscription.status = immediately ? "canceled" : updated.status; // will become canceled later
+  user.subscription.status = updated.status;
   user.subscription.currentPeriodEnd = updated.current_period_end;
   await user.save();
 
   return res.status(200).json(
-    new apiSuccess(200, "Subscription cancel requested", {
+    new apiSuccess(200, "Subscription cancel updated", {
       cancel_at_period_end: updated.cancel_at_period_end,
       status: updated.status,
       currentPeriodEnd: updated.current_period_end,
@@ -293,10 +330,11 @@ const changePlan = asyncHandler(async (req, res, next) => {
 
   const plan = await Plan.findOne({ key: String(planKey).toLowerCase() });
   if (!plan) return next(new apiError(404, "Plan not found"));
-  if (plan.pricing?.status !== "active")
+  if (plan.pricing?.status !== "active") {
     return next(new apiError(400, "This plan is inactive"));
+  }
 
-  // Free plan change: cancel Stripe sub (at period end recommended) and activate free locally
+  // ✅ Free plan change: cancel Stripe sub at period end + activate free locally
   if (plan.isFree) {
     if (user.subscription?.stripeSubscriptionId) {
       await stripe.subscriptions.update(
@@ -310,7 +348,6 @@ const changePlan = asyncHandler(async (req, res, next) => {
     user.subscription.planKey = plan.key;
     user.subscription.billingCycle = billingCycle;
     user.subscription.status = "active";
-    // keep stripeSubscriptionId so it can expire naturally OR null it if you cancel immediately
     await user.save();
 
     return res
@@ -332,17 +369,13 @@ const changePlan = asyncHandler(async (req, res, next) => {
 
   const sub = await stripe.subscriptions.retrieve(subId);
 
-  // Find the subscription item for this product
-  const productId = plan.pricing?.stripeProductId;
-  const item =
-    sub.items?.data?.find((it) => it.price?.product === productId) ||
-    sub.items?.data?.[0];
-
+  // ✅ SAFEST for single-plan subscription: update first item
+  const item = sub.items?.data?.[0];
   if (!item?.id) return next(new apiError(400, "Subscription item not found"));
 
   const updated = await stripe.subscriptions.update(subId, {
     items: [{ id: item.id, price: priceId }],
-    proration_behavior: prorationBehavior, // "none" recommended for clean billing
+    proration_behavior: prorationBehavior, // "none" recommended
   });
 
   user.subscription.planKey = plan.key;
@@ -386,13 +419,13 @@ const stripeWebhook = async (req, res) => {
     }
     await StripeEvent.create({ eventId: event.id, type: event.type });
   } catch (e) {
-    // if unique race happens, still return 200
     if (String(e.message || "").includes("duplicate key")) {
       return res.status(200).json({ received: true, duplicate: true });
     }
-    return res
-      .status(500)
-      .json({ message: "StripeEvent save error", error: e.message });
+    return res.status(500).json({
+      message: "StripeEvent save error",
+      error: e.message,
+    });
   }
 
   try {
@@ -413,11 +446,12 @@ const stripeWebhook = async (req, res) => {
           "subscription.status": sub.status,
           "subscription.stripeSubscriptionId": sub.id,
           "subscription.currentPeriodEnd": sub.current_period_end,
+          "subscription.activatedAt": new Date(), // ✅ for dashboard growth
         });
       }
     }
 
-    // 2) Subscription updated (includes cancel_at_period_end changes)
+    // 2) Subscription updated
     if (event.type === "customer.subscription.updated") {
       const sub = event.data.object;
       await User.updateOne(
@@ -429,7 +463,7 @@ const stripeWebhook = async (req, res) => {
       );
     }
 
-    // 3) Subscription deleted -> mark canceled
+    // 3) Subscription deleted
     if (event.type === "customer.subscription.deleted") {
       const sub = event.data.object;
       await User.updateOne(
@@ -441,16 +475,19 @@ const stripeWebhook = async (req, res) => {
       );
     }
 
-    // 4) Invoice succeeded -> active
+    // 4) Invoice succeeded -> active + store revenue
     if (event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object;
+
+      await upsertPaymentFromInvoice(invoice);
+
       await User.updateOne(
         { "subscription.stripeSubscriptionId": invoice.subscription },
         { "subscription.status": "active" }
       );
     }
 
-    // 5) Invoice failed -> past_due (payment error)
+    // 5) Invoice failed -> past_due
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object;
       await User.updateOne(
@@ -459,14 +496,12 @@ const stripeWebhook = async (req, res) => {
       );
     }
 
-    // Optional: handle trial end / requires_action etc if you want
-    // invoice.payment_action_required etc.
-
     return res.status(200).json({ received: true });
   } catch (err) {
-    return res
-      .status(500)
-      .json({ message: "Webhook handler error", error: err.message });
+    return res.status(500).json({
+      message: "Webhook handler error",
+      error: err.message,
+    });
   }
 };
 

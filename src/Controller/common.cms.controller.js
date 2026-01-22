@@ -164,10 +164,18 @@ const deleteSectionById = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Successfully deleted section", doc));
 });
 
+const getDashboardHomeHeader = asyncHandler(async (req, res, next) => {
+  const listings = await Property.find();
+  
+
+
+})
+
 module.exports = {
   getTermsAndConditionsCms,
   upsertTermsAndConditionsCms,
   addSection,
   updateSectionById,
   deleteSectionById,
+  getDashboardHomeHeader,
 };

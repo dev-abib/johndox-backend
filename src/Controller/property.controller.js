@@ -25,6 +25,7 @@ const {
 const { whyChooseUsItems } = require("../Schema/why.choose.items.schema");
 const axios = require("axios");
 const { UserRating } = require("../Schema/user.rating.schema");
+const { buyerQuery } = require("../Schema/buyer.query.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -1046,6 +1047,26 @@ const requestATour = asyncHandler(async (req, res, next) => {
 
   if (authorId && isExistedBuyer._id.equals(authorId)) {
     return next(new apiError(400, "You can't message yourself", null, false));
+  }
+
+  const newBuyerQuery = new buyerQuery({
+    buyer: isExistedBuyer._id,
+    seller: isExistedProperty.author,
+    message: message,
+    buyerPhoneNumber: phoneNumber,
+    buyerVisitingDate: date,
+    propertyId: propertyId,
+  });
+
+  const savedBuyerQuery = await newBuyerQuery.save();
+
+  if (!savedBuyerQuery) {
+    return next(
+      new apiError(
+        500,
+        "Can't save query at the moment, please try again later"
+      )
+    );
   }
 
   const data = {
