@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const bodyParser = require("body-parser");
 const http = require("http");
 const { initSocket } = require("./src/Utils/socket.js"); // Import initSocket
+const bilingRoutes = require("./src/Routes/Api/plan.api.js")
 
 const allRoutes = require("./src/Routes/index.js");
 const { user } = require("./src/Schema/user.schema.js");
@@ -15,6 +16,8 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 app.set("trust proxy", 1);
+
+app.use(process.env.API_VERSION, bilingRoutes);
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));

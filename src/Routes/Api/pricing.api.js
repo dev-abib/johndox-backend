@@ -12,6 +12,15 @@ const {
   deleteFaq,
   getFaqs,
 } = require("../../Controller/pricing.controller");
+const {
+  createPlan,
+  listPlans,
+  getPlan,
+  updatePlan,
+  syncPlanToStripe,
+  adminUpdatePlanPrice,
+  deletePlan,
+} = require("../../Controller/admin.subscription.plan");
 
 const router = express.Router();
 
@@ -26,5 +35,19 @@ router.route("/update-faq/:faqId").put(updateFaq);
 router.route("/delete-faq/:faqId").delete(deleteFaq);
 
 router.route("/get-faq").get(getFaqs);
+
+router.route("/add-plan").post(createPlan);
+
+router.route("/get-all-plan").get(listPlans);
+
+router.route("/get-single-plan/:planKey").get(getPlan);
+
+router.put("/update-plan/:planKey").put(updatePlan);
+
+router.route("/sync-plan/:planKey").post(syncPlanToStripe);
+
+router.route("/update-plan-price/:planKey").post(adminUpdatePlanPrice);
+
+router.route("delete-plan:/planKey").delete(deletePlan);
 
 module.exports = router;

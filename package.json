@@ -37,7 +37,7 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "streamifier": "^0.1.1",
-    "stripe": "^20.1.0",
+    "stripe": "^20.2.0",
     "web-push": "^3.6.7",
     "winston": "^3.17.0"
   },

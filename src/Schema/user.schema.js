@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const { model, models, Schema } = mongoose;
 
 const userSchema = new Schema(
@@ -7,12 +6,13 @@ const userSchema = new Schema(
     firstName: { type: String, required: [true, "First Name is requried "] },
     lastName: { type: String, required: [true, "Last Name is requried "] },
     email: { type: String, required: [true, "Email address is required"] },
+
     role: {
       type: String,
       required: [true, "user role is required"],
       enum: ["buyer", "seller"],
-      message: "Role must be one of the following:  user, or moderator",
     },
+
     password: { type: String, required: [true, "Password is required"] },
 
     isVerifiedAccount: { type: Boolean, default: false },
@@ -37,36 +37,26 @@ const userSchema = new Schema(
     unreadMessages: { type: Number, default: 0 },
 
     subscription: {
-      planKey: {
-        type: String,
-        enum: ["starter", "professional", "enterprise"],
-        default: "starter",
-      },
-      billingCycle: {
-        type: String,
-        enum: ["monthly", "yearly"],
-        default: "monthly",
-      },
+      // ✅ remove enum so any new plan key can be stored
+      planKey: { type: String, trim: true, lowercase: true, default: "starter" },
+
+      billingCycle: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
+
       status: {
         type: String,
-        enum: [
-          "free",
-          "trialing",
-          "active",
-          "past_due",
-          "canceled",
-          "incomplete",
-        ],
+        enum: ["free", "trialing", "active", "past_due", "canceled", "incomplete"],
         default: "free",
       },
+
       stripeCustomerId: { type: String, default: null },
       stripeSubscriptionId: { type: String, default: null },
-      currentPeriodEnd: { type: Number, default: null }, 
+
+
+      currentPeriodEnd: { type: Number, default: null },
     },
   },
   { timestamps: true }
 );
 
 const user = models.user || model("user", userSchema);
-
 module.exports = { user };
