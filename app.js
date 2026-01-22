@@ -8,18 +8,18 @@ const http = require("http");
 
 const { initSocket } = require("./src/Utils/socket.js");
 const allRoutes = require("./src/Routes/index.js");
-const { stripeWebhook } = require("./src/Controller/billing.controller.js");
+// const { stripeWebhook } = require("./src/Controller/billing.controller.js");
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
 app.set("trust proxy", 1);
 
-app.post(
-  `${process.env.API_VERSION}/billing/webhook`,
-  express.raw({ type: "application/json" }),
-  stripeWebhook
-);
+// app.post(
+//   `${process.env.API_VERSION}/billing/webhook`,
+//   express.raw({ type: "application/json" }),
+//   stripeWebhook
+// );
 
 
 app.use(express.json({ limit: "50mb" }));
