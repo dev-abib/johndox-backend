@@ -11,6 +11,7 @@ const { asyncHandler } = require("../Utils/asyncHandler");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { Payment } = require("../Schema/stripe.payment.schema");
+const { decodeSessionToken } = require("../Helpers/helper");
 
 /** Helpers */
 const toDateFromUnix = (unixSeconds) =>
@@ -60,7 +61,10 @@ const upsertPaymentFromInvoice = async (invoice) => {
  * body: { planKey, billingCycle }
  */
 const createCheckoutSession = asyncHandler(async (req, res, next) => {
-  const userId = req.user?._id;
+  const decodedData = await decodeSessionToken(req);
+
+  const userId = decodedData.userData.userId;
+
   const { planKey, billingCycle } = req.body;
 
   if (!userId) return next(new apiError(401, "Unauthorized"));
@@ -93,7 +97,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     return res.status(200).json(
       new apiSuccess(200, "Free plan activated", {
         mode: "free",
-        redirectUrl: `${process.env.FRONTEND_URL}/billing/success?free=1`,
+        redirectUrl: `${process.env.FRONTEND_URL}/success.html?free=1`,
       })
     );
   }
@@ -135,8 +139,11 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
 
-    success_url: `${process.env.FRONTEND_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL}/billing/cancel?session_id={CHECKOUT_SESSION_ID}`,
+    // success_url: `${process.env.FRONTEND_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    // cancel_url: `${process.env.FRONTEND_URL}/billing/cancel?session_id={CHECKOUT_SESSION_ID}`,
+
+    success_url: `${process.env.FRONTEND_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.FRONTEND_URL}/cancel.html?session_id={CHECKOUT_SESSION_ID}`,
 
     subscription_data:
       plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : undefined,
@@ -161,7 +168,9 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
  * Used by frontend on success page to confirm payment.
  */
 const verifyCheckoutSession = asyncHandler(async (req, res, next) => {
-  const userId = req.user?._id;
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData.userData.userId;
+
   const { sessionId } = req.params;
 
   if (!userId) return next(new apiError(401, "Unauthorized"));
@@ -197,7 +206,9 @@ const verifyCheckoutSession = asyncHandler(async (req, res, next) => {
  * Create Stripe customer portal session to manage payment methods/cancel/invoices
  */
 const createCustomerPortalSession = asyncHandler(async (req, res, next) => {
-  const userId = req.user?._id;
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData.userData.userId;
+
   if (!userId) return next(new apiError(401, "Unauthorized"));
 
   const user = await User.findById(userId);
@@ -221,7 +232,10 @@ const createCustomerPortalSession = asyncHandler(async (req, res, next) => {
  * fetch current subscription info from DB
  */
 const getMySubscription = asyncHandler(async (req, res, next) => {
-  const userId = req.user?._id;
+  const decodedData = await decodeSessionToken(req);
+
+  const userId = decodedData.userData.userId;
+
   if (!userId) return next(new apiError(401, "Unauthorized"));
 
   const user = await User.findById(userId).select(
@@ -247,7 +261,9 @@ const getMySubscription = asyncHandler(async (req, res, next) => {
  * body: { immediately?: boolean }
  */
 const cancelSubscription = asyncHandler(async (req, res, next) => {
-  const userId = req.user?._id;
+  const decodedData = await decodeSessionToken(req);
+
+  const userId = decodedData.userData.userId;
   const { immediately = false } = req.body || {};
 
   if (!userId) return next(new apiError(401, "Unauthorized"));
@@ -286,7 +302,9 @@ const cancelSubscription = asyncHandler(async (req, res, next) => {
  * Resumes if cancel_at_period_end = true (before period ends)
  */
 const resumeSubscription = asyncHandler(async (req, res, next) => {
-  const userId = req.user?._id;
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData.userData.userId;
+
   if (!userId) return next(new apiError(401, "Unauthorized"));
 
   const user = await User.findById(userId);
@@ -316,7 +334,9 @@ const resumeSubscription = asyncHandler(async (req, res, next) => {
  * body: { planKey, billingCycle, prorationBehavior?: "create_prorations"|"none" }
  */
 const changePlan = asyncHandler(async (req, res, next) => {
-  const userId = req.user?._id;
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData.userData.userId;
+
   const { planKey, billingCycle, prorationBehavior = "none" } = req.body;
 
   if (!userId) return next(new apiError(401, "Unauthorized"));

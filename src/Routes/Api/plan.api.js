@@ -4,8 +4,15 @@ const { chatUpload } = require("../../middleware/chat.upload.middleware");
 const {
   validateChatMediaSizes,
 } = require("../../middleware/validateChatMediaSizes");
-const { createCheckoutSession, stripeWebhook } = require("../../Controller/billing.controller");
-
+const {
+  createCheckoutSession,
+  resumeSubscription,
+  changePlan,
+  cancelSubscription,
+  createCustomerPortalSession,
+  verifyCheckoutSession,
+  getMySubscription,
+} = require("../../Controller/billing.controller");
 
 const router = express.Router();
 
@@ -17,9 +24,6 @@ router.post("/portal", authguard, createCustomerPortalSession);
 router.post("/cancel", authguard, cancelSubscription);
 router.post("/resume", authguard, resumeSubscription);
 router.post("/change-plan", authguard, changePlan);
-
-
-
-
+router.route("/billing/me").get(authguard, getMySubscription);
 
 module.exports = router;

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Billing Success Test</title>
+    <style>
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont;
+        max-width: 700px;
+        margin: 40px auto;
+        padding: 0 16px;
+      }
+      pre {
+        background: #f6f8fa;
+        padding: 12px;
+        border-radius: 8px;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Stripe Billing Success (Test)</h2>
+
+    <p id="status">Reading session_id...</p>
+
+    <pre id="output"></pre>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get("session_id");
+
+      const statusEl = document.getElementById("status");
+      const outputEl = document.getElementById("output");
+
+      if (!sessionId) {
+        statusEl.textContent = "❌ No session_id found in URL";
+        outputEl.textContent = "Open like: success.html?session_id=cs_test_xxx";
+        throw new Error("Missing session_id");
+      }
+
+      statusEl.textContent = "✅ session_id found: " + sessionId;
+
+      const TOKEN = ""; // paste JWT here if required
+
+      fetch(
+        `http://localhost:3000/V1/0.0/checkout/session/${sessionId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),
+          },
+          credentials: "include",
+        }
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          outputEl.textContent = JSON.stringify(data, null, 2);
+        })
+        .catch((err) => {
+          outputEl.textContent = "Error: " + err.message;
+        });
+    </script>
+  </body>
+</html>
