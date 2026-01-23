@@ -26,6 +26,7 @@ const { whyChooseUsItems } = require("../Schema/why.choose.items.schema");
 const axios = require("axios");
 const { UserRating } = require("../Schema/user.rating.schema");
 const { buyerQuery } = require("../Schema/buyer.query.schema");
+const { whySellItems } = require("../Schema/why.sell.items.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -1804,7 +1805,7 @@ const deleteWhyChooseItem = asyncHandler(async (req, res, next) => {
 
   const item = await whySellItems.findById(itemId);
 
-  if (item.iconImg) {
+  if (item?.iconImg) {
     const isDeleted = await deleteCloudinaryAsset(item.iconImg);
     if (!isDeleted) {
       return next(new apiError(500, "Error deleting icon image"));
