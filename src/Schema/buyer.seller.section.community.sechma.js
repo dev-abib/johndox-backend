@@ -19,12 +19,10 @@ const buyerSellerCommunitySchema = new Schema(
     sectionTitle: {
       type: String,
       trim: true,
-      default: "Join Our Growing Community",
     },
     sectionSubTitle: {
       type: String,
       trim: true,
-      default: "Connect, trade, and grow together",
     },
 
     featureItems: {

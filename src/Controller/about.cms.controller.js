@@ -9,6 +9,7 @@ const {
 } = require("../Schema/buyer.seller.section.community.sechma");
 const { coreValueSection } = require("../Schema/core.value.section.schema");
 const { coreValueItems } = require("../Schema/core.values.items.schema");
+const OurMissionSection = require("../Schema/our.mission.schema");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
@@ -186,8 +187,6 @@ const updateCoreValueItems = asyncHandler(async (req, res, next) => {
   const { title, shortDescription } = req.body;
 
   const iconImg = req?.file;
-
-  console.log(title, shortDescription, iconImg);
 
   const { itemId } = req.params;
   console.log(itemId);
@@ -379,6 +378,218 @@ const deleteFeatureItem = asyncHandler(async (req, res) => {
   res.status(200).json(new apiSuccess(200, "Feature deleted", doc));
 });
 
+
+const getOurMissionSection = asyncHandler(async (req, res, next) => {
+  const section = await OurMissionSection.findOne();
+
+  if (!section) {
+    return next(new apiError(404, "Our Mission section not found"));
+  }
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(200, "Our Mission section retrieved successfully", section)
+    );
+});
+
+
+const createOurMissionSection = asyncHandler(async (req, res, next) => {
+  const existing = await OurMissionSection.findOne();
+
+  if (existing) {
+    return next(
+      new apiError(
+        400,
+        "Our Mission section already exists. Use the update endpoint instead."
+      )
+    );
+  }
+
+  const { title, description } = req.body;
+
+  const bgImgFile = req?.file;
+
+  if (!title || !description) {
+    return next(
+      new apiError(
+        400,
+        "Title and description are required to create the section"
+      )
+    );
+  }
+
+  let bgImgUrl = null;
+  if (bgImgFile) {
+    const uploadResult = await uploadCloudinary(
+      bgImgFile.buffer,
+      "cms/our-mission/background"
+    );
+    if (!uploadResult?.secure_url) {
+      return next(new apiError(500, "Failed to upload background image"));
+    }
+    bgImgUrl = uploadResult.secure_url;
+  }
+
+  const section = new OurMissionSection({
+    title,
+    description,
+    bgImg: bgImgUrl,
+    featureItems: [],
+  });
+
+  const saved = await section.save();
+
+  return res
+    .status(201)
+    .json(
+      new apiSuccess(201, "Our Mission section created successfully", saved)
+    );
+});
+
+
+const updateOurMissionSectionDetails = asyncHandler(async (req, res, next) => {
+  const section = await OurMissionSection.findOne();
+
+  if (!section) {
+    return next(
+      new apiError(
+        404,
+        "Our Mission section not found. Please create it first."
+      )
+    );
+  }
+
+  const { title, description } = req.body;
+  const bgImgFile = req?.file;
+
+  if (!title && !description && !bgImgFile) {
+    return next(
+      new apiError(
+        400,
+        "At least one field must be provided (title, description, or background image)"
+      )
+    );
+  }
+
+  if (title !== undefined) section.title = title;
+  if (description !== undefined) section.description = description;
+
+  if (bgImgFile) {
+    if (section.bgImg) {
+      const deleted = await deleteCloudinaryAsset(section.bgImg);
+      if (!deleted) {
+        return next(new apiError(500, "Failed to delete old background image"));
+      }
+    }
+
+    const uploadResult = await uploadCloudinary(
+      bgImgFile.buffer,
+      "cms/our-mission/background"
+    );
+    if (!uploadResult?.secure_url) {
+      return next(new apiError(500, "Failed to upload new background image"));
+    }
+
+    section.bgImg = uploadResult.secure_url;
+  }
+
+  const updated = await section.save();
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "Our Mission section details updated successfully",
+        updated
+      )
+    );
+});
+
+// ────────────────────────────────────────────────
+//  ADD new feature item to Our Mission section
+// ────────────────────────────────────────────────
+const addOurMissionFeatureItem = asyncHandler(async (req, res, next) => {
+  const { title, subTitle } = req.body;
+
+  if (!title || !subTitle) {
+    return next(new apiError(400, "Both title and subTitle are required"));
+  }
+
+  const section = await OurMissionSection.findOne();
+
+  if (!section) {
+    return next(
+      new apiError(404, "Our Mission section not found. Create it first.")
+    );
+  }
+
+  section.featureItems.push({ title, subTitle });
+
+  const saved = await section.save();
+  const newItem = saved.featureItems[saved.featureItems.length - 1];
+
+  return res
+    .status(201)
+    .json(
+      new apiSuccess(201, "Feature item added to Our Mission section", newItem)
+    );
+});
+
+const updateOurMissionFeatureItem = asyncHandler(async (req, res, next) => {
+  const { featureId } = req.params;
+  const { title, subTitle } = req.body;
+
+  if (!title && !subTitle) {
+    return next(
+      new apiError(400, "Provide at least title or subTitle to update")
+    );
+  }
+
+  const section = await OurMissionSection.findOne();
+  if (!section) {
+    return next(new apiError(404, "Our Mission section not found"));
+  }
+
+  const item = section.featureItems.id(featureId);
+  if (!item) {
+    return next(new apiError(404, "Feature item not found"));
+  }
+
+  if (title !== undefined) item.title = title;
+  if (subTitle !== undefined) item.subTitle = subTitle;
+
+  await section.save();
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(200, "Our Mission feature item updated successfully", item)
+    );
+});
+
+const deleteOurMissionFeatureItem = asyncHandler(async (req, res, next) => {
+  const { featureId } = req.params;
+
+  const section = await OurMissionSection.findOne();
+  if (!section) {
+    return next(new apiError(404, "Our Mission section not found"));
+  }
+
+  const item = section.featureItems.id(featureId);
+  if (!item) {
+    return next(new apiError(404, "Feature item not found"));
+  }
+
+  section.featureItems.pull(featureId);
+  await section.save();
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Our Mission feature item deleted successfully"));
+});
+
 module.exports = {
   upsertAboutHero,
   getAboutHero,
@@ -392,4 +603,10 @@ module.exports = {
   addFeatureItem,
   updateFeatureItem,
   deleteFeatureItem,
+  getOurMissionSection,
+  createOurMissionSection,
+  updateOurMissionSectionDetails,
+  addOurMissionFeatureItem,
+  updateOurMissionFeatureItem,
+  deleteOurMissionFeatureItem,
 };

@@ -10,18 +10,18 @@ const {
   deleteCoreValueItems,
   updateCoreValueItems,
   getCoreValue,
-  createBuyerSellerCommunitySection,
-  updateBuyerSellerCommunitySection,
-  deleteBuyerSellerCommunitySection,
-  getAllBuyerSellerCommunitySections,
-  getBuyerSellerCommunitySectionById,
   deleteFeatureItem,
   updateFeatureItem,
   addFeatureItem,
   updateSectionMetadata,
   getOrInitializeCommunity,
+  deleteOurMissionFeatureItem,
+  updateOurMissionFeatureItem,
+  addOurMissionFeatureItem,
+  updateOurMissionSectionDetails,
+  getOurMissionSection,
+  createOurMissionSection,
 } = require("../../Controller/about.cms.controller");
-const { createUpdateHowItWorks } = require("../../Controller/seller.cms.controller");
 
 const router = express.Router();
 
@@ -58,6 +58,27 @@ router.post("/community/features", addFeatureItem);
 router.patch("/community/features/:featureId", updateFeatureItem);
 
 router.delete("/community/features/:featureId", deleteFeatureItem);
+
+
+router.route("/get-our-mission-section").get(getOurMissionSection);
+
+router
+  .route("/our-mission")
+  .post(uploadMedia.single("bgImg"), createOurMissionSection);
+
+router
+  .route("/our-mission")
+  .patch(uploadMedia.single("bgImg"), updateOurMissionSectionDetails);
+
+router.route("/our-mission/features").post(addOurMissionFeatureItem);
+
+router
+  .route("/our-mission/features/:featureId")
+  .patch(updateOurMissionFeatureItem);
+
+router
+  .route("/our-mission/features/:featureId")
+  .delete(deleteOurMissionFeatureItem);
 
 
 module.exports = router;
