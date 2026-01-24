@@ -37,20 +37,29 @@ const userSchema = new Schema(
     unreadMessages: { type: Number, default: 0 },
 
     subscription: {
-      // ✅ remove enum so any new plan key can be stored
-      planKey: { type: String, trim: true, lowercase: true, default: "starter" },
+      planKey: { type: String, trim: true, lowercase: true, default: null },
 
-      billingCycle: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
+      billingCycle: {
+        type: String,
+        enum: ["monthly", "yearly"],
+        default: "monthly",
+      },
 
       status: {
         type: String,
-        enum: ["free", "trialing", "active", "past_due", "canceled", "incomplete"],
+        enum: [
+          "free",
+          "trialing",
+          "active",
+          "past_due",
+          "canceled",
+          "incomplete",
+        ],
         default: "free",
       },
 
       stripeCustomerId: { type: String, default: null },
       stripeSubscriptionId: { type: String, default: null },
-
 
       currentPeriodEnd: { type: Number, default: null },
     },

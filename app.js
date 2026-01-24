@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 8000;
 app.set("trust proxy", 1);
 
 app.post(
-  `${process.env.API_VERSION}/billing/webhook`,
+  `/webhook`,
   express.raw({ type: "application/json" }),
   stripeWebhook
 );

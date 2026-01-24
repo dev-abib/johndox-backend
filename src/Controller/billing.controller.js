@@ -56,12 +56,10 @@ const upsertPaymentFromInvoice = async (invoice) => {
   }
 };
 
-
 const createCheckoutSession = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
 
   const userId = decodedData.userData.userId;
-
   const { planKey, billingCycle } = req.body;
 
   if (!userId) return next(new apiError(401, "Unauthorized"));
@@ -70,40 +68,41 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "billingCycle must be monthly or yearly"));
   }
 
+  // Find user
   const user = await User.findById(userId);
   if (!user) return next(new apiError(404, "User not found"));
 
+  // Find plan
   const plan = await Plan.findOne({ key: String(planKey).toLowerCase() });
   if (!plan) return next(new apiError(404, "Plan not found"));
 
+  // Check if the plan is active
   if (plan.pricing?.status !== "active") {
     return next(new apiError(400, "This plan is inactive"));
   }
 
-  if (plan.isFree) {
-    user.subscription = user.subscription || {};
-    user.subscription.planKey = plan.key;
-    user.subscription.billingCycle = billingCycle;
-    user.subscription.status = "active";
-    user.subscription.stripeSubscriptionId = null;
-    user.subscription.currentPeriodEnd = null;
-    user.subscription.activatedAt = new Date();
-    await user.save();
-
-    return res.status(200).json(
-      new apiSuccess(200, "Free plan activated", {
-        mode: "free",
-        redirectUrl: `${process.env.FRONTEND_URL}/success?free=1&plan=${plan.key}&billing=${billingCycle}`,
-      })
-    );
+  // If the user has an existing subscription, cancel it at the end of the billing cycle
+  if (user.subscription?.stripeSubscriptionId) {
+    if (user.subscription.status !== "inactive") {
+      const stripeSubscription = await stripe.subscriptions.update(
+        user.subscription.stripeSubscriptionId,
+        {
+          cancel_at_period_end: true, // Cancel the current subscription at the end of the billing cycle
+        }
+      );
+      console.log(
+        `Current subscription set to cancel at period end: ${stripeSubscription.id}`
+      );
+    }
   }
 
+  // Get the Price ID for the selected plan and billing cycle
   const priceId = getPriceIdForPlan(plan, billingCycle);
   if (!priceId)
     return next(new apiError(400, "Plan price not synced to Stripe"));
 
+  // Ensure the user has a Stripe customer ID; create one if it doesn't exist
   user.subscription = user.subscription || {};
-
   let customerId = user.subscription.stripeCustomerId;
   if (!customerId) {
     const customer = await stripe.customers.create({
@@ -116,29 +115,15 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     await user.save();
   }
 
-  if (
-    user.subscription.stripeSubscriptionId &&
-    ["active", "trialing", "past_due"].includes(user.subscription.status)
-  ) {
-    return next(
-      new apiError(
-        400,
-        "You already have a subscription. Use change-plan instead."
-      )
-    );
-  }
-
+  // Create Stripe Checkout session
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
-
     success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.FRONTEND_URL}/cancel?session_id={CHECKOUT_SESSION_ID}`,
-
     subscription_data:
       plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : undefined,
-
     metadata: {
       userId: String(user._id),
       planKey: plan.key,
@@ -146,6 +131,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     },
   });
 
+  // Respond with the session URL
   return res.status(200).json(
     new apiSuccess(200, "Checkout session created", {
       url: session.url,
@@ -153,6 +139,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     })
   );
 });
+
 
 
 const verifyCheckoutSession = asyncHandler(async (req, res, next) => {
@@ -405,6 +392,7 @@ const changePlan = asyncHandler(async (req, res, next) => {
  * POST /billing/webhook
  * IMPORTANT: use express.raw({type:"application/json"})
  */
+
 const stripeWebhook = async (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
@@ -416,10 +404,11 @@ const stripeWebhook = async (req, res) => {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
+    console.log(err);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // ✅ Idempotency guard
+  // Idempotency guard (to prevent duplicate events)
   try {
     const already = await StripeEvent.findOne({ eventId: event.id });
     if (already) {
@@ -427,9 +416,6 @@ const stripeWebhook = async (req, res) => {
     }
     await StripeEvent.create({ eventId: event.id, type: event.type });
   } catch (e) {
-    if (String(e.message || "").includes("duplicate key")) {
-      return res.status(200).json({ received: true, duplicate: true });
-    }
     return res.status(500).json({
       message: "StripeEvent save error",
       error: e.message,
@@ -437,7 +423,7 @@ const stripeWebhook = async (req, res) => {
   }
 
   try {
-    // 1) Checkout completed -> write subscription info
+    // 1) Checkout session completed -> update subscription data
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const userId = session.metadata?.userId;
@@ -448,45 +434,72 @@ const stripeWebhook = async (req, res) => {
       if (userId && subscriptionId) {
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
 
+        // Ensure currentPeriodEnd is a valid number
+        let currentPeriodEnd = sub.current_period_end;
+        if (isNaN(currentPeriodEnd)) {
+          console.error("Invalid current_period_end:", currentPeriodEnd);
+          currentPeriodEnd = null; // Handle invalid value (set to null or a default value)
+        } else {
+          currentPeriodEnd *= 1000; // Convert from seconds to milliseconds
+        }
+
+        // Update user's subscription data
         await User.findByIdAndUpdate(userId, {
           "subscription.planKey": String(planKey).toLowerCase(),
           "subscription.billingCycle": billingCycle,
           "subscription.status": sub.status,
           "subscription.stripeSubscriptionId": sub.id,
-          "subscription.currentPeriodEnd": sub.current_period_end,
-          "subscription.activatedAt": new Date(), // ✅ for dashboard growth
+          "subscription.currentPeriodEnd": currentPeriodEnd,
+          "subscription.activatedAt": new Date(),
         });
       }
     }
 
-    // 2) Subscription updated
+    // 2) Subscription updated -> update subscription status
     if (event.type === "customer.subscription.updated") {
       const sub = event.data.object;
+      let currentPeriodEnd = sub.current_period_end;
+      if (isNaN(currentPeriodEnd)) {
+        console.error("Invalid current_period_end:", currentPeriodEnd);
+        currentPeriodEnd = null; // Handle invalid value (set to null or a default value)
+      } else {
+        currentPeriodEnd *= 1000; // Convert from seconds to milliseconds
+      }
+
       await User.updateOne(
         { "subscription.stripeSubscriptionId": sub.id },
         {
           "subscription.status": sub.status,
-          "subscription.currentPeriodEnd": sub.current_period_end,
+          "subscription.currentPeriodEnd": currentPeriodEnd,
         }
       );
     }
 
-    // 3) Subscription deleted
+    // 3) Subscription deleted -> mark as canceled
     if (event.type === "customer.subscription.deleted") {
       const sub = event.data.object;
+      let currentPeriodEnd = sub.current_period_end;
+      if (isNaN(currentPeriodEnd)) {
+        console.error("Invalid current_period_end:", currentPeriodEnd);
+        currentPeriodEnd = null; // Handle invalid value (set to null or a default value)
+      } else {
+        currentPeriodEnd *= 1000; // Convert from seconds to milliseconds
+      }
+
       await User.updateOne(
         { "subscription.stripeSubscriptionId": sub.id },
         {
           "subscription.status": "canceled",
-          "subscription.currentPeriodEnd": sub.current_period_end,
+          "subscription.currentPeriodEnd": currentPeriodEnd,
         }
       );
     }
 
-    // 4) Invoice succeeded -> active + store revenue
+    // 4) Invoice payment succeeded -> mark subscription as active and store revenue
     if (event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object;
 
+      // Store payment details
       await upsertPaymentFromInvoice(invoice);
 
       await User.updateOne(
@@ -495,7 +508,7 @@ const stripeWebhook = async (req, res) => {
       );
     }
 
-    // 5) Invoice failed -> past_due
+    // 5) Invoice payment failed -> mark subscription as past_due
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object;
       await User.updateOne(
@@ -506,12 +519,15 @@ const stripeWebhook = async (req, res) => {
 
     return res.status(200).json({ received: true });
   } catch (err) {
+    console.error("Webhook handler error:", err);
     return res.status(500).json({
       message: "Webhook handler error",
       error: err.message,
     });
   }
 };
+
+
 
 module.exports = {
   createCheckoutSession,
