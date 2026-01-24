@@ -304,10 +304,7 @@ const resumeSubscription = asyncHandler(async (req, res, next) => {
   );
 });
 
-/**
- * POST /billing/change-plan
- * body: { planKey, billingCycle, prorationBehavior?: "create_prorations"|"none" }
- */
+
 const changePlan = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
   const userId = decodedData.userData.userId;
@@ -329,7 +326,6 @@ const changePlan = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "This plan is inactive"));
   }
 
-  // ✅ Free plan change: cancel Stripe sub at period end + activate free locally
   if (plan.isFree) {
     if (user.subscription?.stripeSubscriptionId) {
       await stripe.subscriptions.update(
@@ -364,13 +360,12 @@ const changePlan = asyncHandler(async (req, res, next) => {
 
   const sub = await stripe.subscriptions.retrieve(subId);
 
-  // ✅ SAFEST for single-plan subscription: update first item
   const item = sub.items?.data?.[0];
   if (!item?.id) return next(new apiError(400, "Subscription item not found"));
 
   const updated = await stripe.subscriptions.update(subId, {
     items: [{ id: item.id, price: priceId }],
-    proration_behavior: prorationBehavior, // "none" recommended
+    proration_behavior: prorationBehavior, 
   });
 
   user.subscription.planKey = plan.key;
@@ -388,10 +383,6 @@ const changePlan = asyncHandler(async (req, res, next) => {
   );
 });
 
-/**
- * POST /billing/webhook
- * IMPORTANT: use express.raw({type:"application/json"})
- */
 
 const stripeWebhook = async (req, res) => {
   const sig = req.headers["stripe-signature"];
@@ -408,7 +399,6 @@ const stripeWebhook = async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Idempotency guard (to prevent duplicate events)
   try {
     const already = await StripeEvent.findOne({ eventId: event.id });
     if (already) {
@@ -423,7 +413,6 @@ const stripeWebhook = async (req, res) => {
   }
 
   try {
-    // 1) Checkout session completed -> update subscription data
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const userId = session.metadata?.userId;
@@ -434,16 +423,14 @@ const stripeWebhook = async (req, res) => {
       if (userId && subscriptionId) {
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
 
-        // Ensure currentPeriodEnd is a valid number
         let currentPeriodEnd = sub.current_period_end;
         if (isNaN(currentPeriodEnd)) {
           console.error("Invalid current_period_end:", currentPeriodEnd);
-          currentPeriodEnd = null; // Handle invalid value (set to null or a default value)
+          currentPeriodEnd = null; 
         } else {
-          currentPeriodEnd *= 1000; // Convert from seconds to milliseconds
+          currentPeriodEnd *= 1000; 
         }
 
-        // Update user's subscription data
         await User.findByIdAndUpdate(userId, {
           "subscription.planKey": String(planKey).toLowerCase(),
           "subscription.billingCycle": billingCycle,
@@ -455,15 +442,14 @@ const stripeWebhook = async (req, res) => {
       }
     }
 
-    // 2) Subscription updated -> update subscription status
     if (event.type === "customer.subscription.updated") {
       const sub = event.data.object;
       let currentPeriodEnd = sub.current_period_end;
       if (isNaN(currentPeriodEnd)) {
         console.error("Invalid current_period_end:", currentPeriodEnd);
-        currentPeriodEnd = null; // Handle invalid value (set to null or a default value)
+        currentPeriodEnd = null; 
       } else {
-        currentPeriodEnd *= 1000; // Convert from seconds to milliseconds
+        currentPeriodEnd *= 1000; 
       }
 
       await User.updateOne(
@@ -475,15 +461,14 @@ const stripeWebhook = async (req, res) => {
       );
     }
 
-    // 3) Subscription deleted -> mark as canceled
     if (event.type === "customer.subscription.deleted") {
       const sub = event.data.object;
       let currentPeriodEnd = sub.current_period_end;
       if (isNaN(currentPeriodEnd)) {
         console.error("Invalid current_period_end:", currentPeriodEnd);
-        currentPeriodEnd = null; // Handle invalid value (set to null or a default value)
+        currentPeriodEnd = null; 
       } else {
-        currentPeriodEnd *= 1000; // Convert from seconds to milliseconds
+        currentPeriodEnd *= 1000; 
       }
 
       await User.updateOne(
@@ -508,7 +493,6 @@ const stripeWebhook = async (req, res) => {
       );
     }
 
-    // 5) Invoice payment failed -> mark subscription as past_due
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object;
       await User.updateOne(
