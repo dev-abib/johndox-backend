@@ -1477,7 +1477,6 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
   let createdCategorySection = null;
 
 
-  // Handle section creation/update
   if (section_title || section_sub_title) {
     const isExistedCategorySection = await categorySection.findOne();
 
