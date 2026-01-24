@@ -413,7 +413,7 @@ const updateHowItWorksItems = asyncHandler(async (req, res, next) => {
 
     const uploadResult = await uploadCloudinary(
       iconImg.buffer,
-      "cms/how-it-works/icons/icons"
+      "cms/how-it-works/icons"
     );
     if (!uploadResult?.secure_url) {
       return next(new apiError(500, "Icon upload failed"));
