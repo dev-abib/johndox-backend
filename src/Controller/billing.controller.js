@@ -56,10 +56,7 @@ const upsertPaymentFromInvoice = async (invoice) => {
   }
 };
 
-/**
- * POST /billing/checkout
- * body: { planKey, billingCycle }
- */
+
 const createCheckoutSession = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
 
@@ -83,7 +80,6 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "This plan is inactive"));
   }
 
-  // ✅ Free plan -> no Stripe checkout needed
   if (plan.isFree) {
     user.subscription = user.subscription || {};
     user.subscription.planKey = plan.key;
@@ -97,7 +93,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     return res.status(200).json(
       new apiSuccess(200, "Free plan activated", {
         mode: "free",
-        redirectUrl: `${process.env.FRONTEND_URL}/success.html?free=1`,
+        redirectUrl: `${process.env.FRONTEND_URL}/success?free=1&plan=${plan.key}&billing=${billingCycle}`,
       })
     );
   }
@@ -108,7 +104,6 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
 
   user.subscription = user.subscription || {};
 
-  // ✅ Create Stripe customer if missing
   let customerId = user.subscription.stripeCustomerId;
   if (!customerId) {
     const customer = await stripe.customers.create({
@@ -121,7 +116,6 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     await user.save();
   }
 
-  // ✅ Block checkout if user already has a subscription
   if (
     user.subscription.stripeSubscriptionId &&
     ["active", "trialing", "past_due"].includes(user.subscription.status)
@@ -139,11 +133,8 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
 
-    // success_url: `${process.env.FRONTEND_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    // cancel_url: `${process.env.FRONTEND_URL}/billing/cancel?session_id={CHECKOUT_SESSION_ID}`,
-
-    success_url: `${process.env.FRONTEND_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL}/cancel.html?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.FRONTEND_URL}/cancel?session_id={CHECKOUT_SESSION_ID}`,
 
     subscription_data:
       plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : undefined,
@@ -163,10 +154,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
   );
 });
 
-/**
- * GET /billing/checkout/session/:sessionId
- * Used by frontend on success page to confirm payment.
- */
+
 const verifyCheckoutSession = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
   const userId = decodedData.userData.userId;

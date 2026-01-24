@@ -15,7 +15,7 @@ const ensureRecurringPrice = async ({ productId, planDoc, cycle }) => {
 
   const interval = cycle === "yearly" ? "year" : "month";
   const amount = Number(current.amount || 0);
-  if (amount <= 0) return; // allow free or unset (skip)
+  if (amount <= 0) return; 
 
   const price = await stripe.prices.create({
     product: productId,
@@ -28,10 +28,7 @@ const ensureRecurringPrice = async ({ productId, planDoc, cycle }) => {
   planDoc.pricing[cycle].stripePriceId = price.id;
 };
 
-/**
- * POST /admin/plans
- * body: { key, name, description, isFree, isPopular, trialDays, features, limits, pricing }
- */
+
 const createPlan = asyncHandler(async (req, res, next) => {
   const payload = req.body || {};
   const key = String(payload.key || "")
@@ -99,17 +96,13 @@ const createPlan = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(201, "Plan created", { plan: planDoc }));
 });
 
-/**
- * GET /admin/plans
- */
+
 const listPlans = asyncHandler(async (req, res) => {
   const plans = await Plan.find().sort({ createdAt: -1 });
   return res.status(200).json(new apiSuccess(200, "Plans fetched", { plans }));
 });
 
-/**
- * GET /admin/plans/:planKey
- */
+
 const getPlan = asyncHandler(async (req, res, next) => {
   const planKey = String(req.params.planKey || "").toLowerCase();
   const planDoc = await Plan.findOne({ key: planKey });
@@ -119,10 +112,7 @@ const getPlan = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Plan fetched", { plan: planDoc }));
 });
 
-/**
- * PUT /admin/plans/:planKey
- * Updates non-price fields (and Stripe product info)
- */
+
 const updatePlan = asyncHandler(async (req, res, next) => {
   const planKey = String(req.params.planKey || "").toLowerCase();
   const updates = req.body || {};
@@ -139,7 +129,6 @@ const updatePlan = asyncHandler(async (req, res, next) => {
     planDoc.features = Array.isArray(updates.features) ? updates.features : [];
   if (updates.limits != null) planDoc.limits = updates.limits;
 
-  // optionally allow toggling status
   if (
     updates.pricing?.status &&
     ["active", "inactive"].includes(updates.pricing.status)
@@ -151,7 +140,6 @@ const updatePlan = asyncHandler(async (req, res, next) => {
 
   await planDoc.save();
 
-  // Update Stripe product (safe)
   const productId = planDoc.pricing?.stripeProductId;
   if (productId) {
     await stripe.products.update(productId, {
@@ -166,10 +154,7 @@ const updatePlan = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Plan updated", { plan: planDoc }));
 });
 
-/**
- * POST /admin/plans/:planKey/sync
- * Ensures Stripe product exists + creates missing prices if needed
- */
+
 const syncPlanToStripe = asyncHandler(async (req, res, next) => {
   const planKey = String(req.params.planKey || "").toLowerCase();
 
@@ -210,10 +195,7 @@ const syncPlanToStripe = asyncHandler(async (req, res, next) => {
   );
 });
 
-/**
- * PUT /admin/plans/:planKey/price
- * body: { billingCycle, amount, currency, migrateExisting=true/false }
- */
+
 const adminUpdatePlanPrice = asyncHandler(async (req, res, next) => {
   const planKey = String(req.params.planKey || "").toLowerCase();
   const { billingCycle, amount, currency, migrateExisting = true } = req.body;
@@ -296,13 +278,7 @@ const adminUpdatePlanPrice = asyncHandler(async (req, res, next) => {
     );
 });
 
-/**
- * DELETE /admin/plans/:planKey
- * Soft delete (inactive). Safe behavior:
- * - Always mark plan inactive in DB
- * - If plan has active subscribers: DO NOT deactivate Stripe prices/product (avoid renewal issues)
- * - If no active subscribers: deactivate Stripe product/prices
- */
+
 const deletePlan = asyncHandler(async (req, res, next) => {
   const planKey = String(req.params.planKey || "").toLowerCase();
 
