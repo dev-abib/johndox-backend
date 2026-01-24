@@ -3,6 +3,10 @@ const {
   deleteCloudinaryAsset,
 } = require("../Helpers/uploadCloudinary");
 const { aboutHero } = require("../Schema/about.hero.schema");
+const BuyerSellerCommunity = require("../Schema/buyer.seller.section.community.sechma");
+const {
+  buyerSellerCommunitySection,
+} = require("../Schema/buyer.seller.section.community.sechma");
 const { coreValueSection } = require("../Schema/core.value.section.schema");
 const { coreValueItems } = require("../Schema/core.values.items.schema");
 const { apiError } = require("../Utils/api.error");
@@ -272,6 +276,109 @@ const getCoreValue = asyncHandler(async (req, res) => {
   );
 });
 
+// Get or create the single document (most important endpoint now)
+const getOrInitializeCommunity = asyncHandler(async (req, res) => {
+  let doc = await BuyerSellerCommunity.findOne();
+
+  if (!doc) {
+    doc = await BuyerSellerCommunity.create({}); // uses defaults
+  }
+
+  res.status(200).json(new apiSuccess(200, "Success", doc));
+});
+
+// Update global title & subtitle only
+const updateSectionMetadata = asyncHandler(async (req, res) => {
+  const { sectionTitle, sectionSubTitle } = req.body;
+
+  let doc = await BuyerSellerCommunity.findOne();
+
+  if (!doc) {
+    doc = new BuyerSellerCommunity({
+      ...(sectionTitle !== undefined && { sectionTitle: sectionTitle.trim() }),
+      ...(sectionSubTitle !== undefined && {
+        sectionSubTitle: sectionSubTitle.trim(),
+      }),
+    });
+
+    await doc.save();
+
+    return res
+      .status(201)
+      .json(new apiSuccess(201, "Community section created successfully", doc));
+  }
+
+  let hasChanges = false;
+
+  if (sectionTitle !== undefined) {
+    doc.sectionTitle = sectionTitle.trim();
+    hasChanges = true;
+  }
+
+  if (sectionSubTitle !== undefined) {
+    doc.sectionSubTitle = sectionSubTitle.trim();
+    hasChanges = true;
+  }
+
+  if (hasChanges) {
+    await doc.save();
+    return res
+      .status(200)
+      .json(new apiSuccess(200, "Metadata updated successfully", doc));
+  }
+
+  return res.status(200).json(new apiSuccess(200, "No changes to apply", doc));
+});
+
+// ─── Feature CRUD ──────────────────────────────────────────────
+
+const addFeatureItem = asyncHandler(async (req, res) => {
+  const { title, subTitle } = req.body;
+  if (!title?.trim() || !subTitle?.trim()) {
+    throw new apiError(400, "Both title and subtitle required");
+  }
+
+  const doc = await BuyerSellerCommunity.findOne();
+  if (!doc) throw new apiError(404, "Not found");
+
+  doc.featureItems.push({ title: title.trim(), subTitle: subTitle.trim() });
+  const updated = await doc.save();
+
+  res.status(201).json(new apiSuccess(201, "Feature added", updated));
+});
+
+const updateFeatureItem = asyncHandler(async (req, res) => {
+  const { featureId } = req.params;
+  const { title, subTitle } = req.body;
+
+  const doc = await BuyerSellerCommunity.findOne();
+  if (!doc) throw new apiError(404, "Not found");
+
+  const item = doc.featureItems.id(featureId);
+  if (!item) throw new apiError(404, "Feature item not found");
+
+  if (title !== undefined) item.title = title.trim();
+  if (subTitle !== undefined) item.subTitle = subTitle.trim();
+
+  const updated = await doc.save();
+
+  res.status(200).json(new apiSuccess(200, "Feature updated", updated));
+});
+
+const deleteFeatureItem = asyncHandler(async (req, res) => {
+  const { featureId } = req.params;
+
+  const doc = await BuyerSellerCommunity.findOneAndUpdate(
+    {},
+    { $pull: { featureItems: { _id: featureId } } },
+    { new: true }
+  );
+
+  if (!doc) throw new apiError(404, "Not found");
+
+  res.status(200).json(new apiSuccess(200, "Feature deleted", doc));
+});
+
 module.exports = {
   upsertAboutHero,
   getAboutHero,
@@ -279,5 +386,10 @@ module.exports = {
   addCoreValueItems,
   updateCoreValueItems,
   deleteCoreValueItems,
-  getCoreValue
+  getCoreValue,
+  getOrInitializeCommunity,
+  updateSectionMetadata,
+  addFeatureItem,
+  updateFeatureItem,
+  deleteFeatureItem,
 };

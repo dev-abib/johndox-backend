@@ -10,6 +10,16 @@ const {
   deleteCoreValueItems,
   updateCoreValueItems,
   getCoreValue,
+  createBuyerSellerCommunitySection,
+  updateBuyerSellerCommunitySection,
+  deleteBuyerSellerCommunitySection,
+  getAllBuyerSellerCommunitySections,
+  getBuyerSellerCommunitySectionById,
+  deleteFeatureItem,
+  updateFeatureItem,
+  addFeatureItem,
+  updateSectionMetadata,
+  getOrInitializeCommunity,
 } = require("../../Controller/about.cms.controller");
 const { createUpdateHowItWorks } = require("../../Controller/seller.cms.controller");
 
@@ -38,6 +48,16 @@ router
 
 // Get the Section Data
 router.route("/get-core-value-section").get(getCoreValue);
+
+router.get("/community", getOrInitializeCommunity);
+
+router.patch("/community/metadata", updateSectionMetadata);
+
+router.post("/community/features", addFeatureItem);
+
+router.patch("/community/features/:featureId", updateFeatureItem);
+
+router.delete("/community/features/:featureId", deleteFeatureItem);
 
 
 module.exports = router;
