@@ -1471,11 +1471,11 @@ const getFeaturedProperties = asyncHandler(async (req, res, next) => {
 
 const upsertCategory = asyncHandler(async (req, res, next) => {
   const { name, title, section_title, section_sub_title } = req.body;
-  const bgImg = req.file; // Background image
-  const iconImg = req.files?.iconImg; // Icon image (handling file upload)
+  const bgImg = req.files?.bgImg ? req.files.bgImg[0] : null; 
+  const iconImg = req.files?.iconImg ? req.files.iconImg[0] : null; 
   const categoryId = req.params.categoryId;
-
   let createdCategorySection = null;
+
 
   // Handle section creation/update
   if (section_title || section_sub_title) {

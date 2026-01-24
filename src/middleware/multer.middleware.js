@@ -1,33 +1,25 @@
-// middleware/multer.middleware.js
 const multer = require("multer");
 
 const uploadMedia = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.memoryStorage(), // Files are stored in memory
 
-  limits: { fileSize: 100 * 1024 * 1024 }, 
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB file size limit
 
   fileFilter: (req, file, cb) => {
-    const imageTypes = /jpeg|jpg|png|svg/;
-    const videoTypes = /mp4|mov|webm|mkv|quicktime/;
-    const pdfTypes = /pdf/;
+    // Allowed file types
+    const allowedTypes = /jpeg|jpg|png|svg|mp4|mov|webm|mkv|quicktime|pdf/;
 
     const ext = file.originalname.split(".").pop().toLowerCase();
     const mimetype = file.mimetype.toLowerCase();
 
-    const isImage = imageTypes.test(ext) || mimetype.startsWith("image/");
-
-    const isVideo = videoTypes.test(ext) || mimetype.startsWith("video/");
-
-    const isPdf = pdfTypes.test(ext) || mimetype === "application/pdf";
-
-    if (isImage || isVideo || isPdf) {
-      return cb(null, true);
+    // Check if the file type is allowed
+    if (allowedTypes.test(ext) || allowedTypes.test(mimetype)) {
+      return cb(null, true); // Accept the file
     }
 
-    return cb(
-      new Error(
-        "Only image (jpeg, jpg, png, svg), video (mp4, mov, webm, mkv) and PDF files are allowed!"
-      )
+    // Reject the file with a clear message
+    cb(
+      new Error("Invalid file type. Only images, videos, and PDFs are allowed.")
     );
   },
 });

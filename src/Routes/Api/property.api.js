@@ -94,20 +94,22 @@ router.route("/set-feature-properties").post(setFeaturedProperties);
 
 router.route("/get-featured-properties").get(getFeaturedProperties);
 
+// Add category route
 router.route("/add-category").post(
   uploadMedia.fields([
     { name: "bgImg", maxCount: 1 },
     { name: "iconImg", maxCount: 1 },
   ]),
-  upsertCategory
+  upsertCategory 
 );
 
+// Update category route
 router.route("/update-category/:categoryId").post(
   uploadMedia.fields([
     { name: "bgImg", maxCount: 1 },
     { name: "iconImg", maxCount: 1 },
   ]),
-  upsertCategory
+  upsertCategory 
 );
 
 router.route("/get-category-section").get(getCategorySection);
