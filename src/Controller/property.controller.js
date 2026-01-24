@@ -1471,12 +1471,13 @@ const getFeaturedProperties = asyncHandler(async (req, res, next) => {
 
 const upsertCategory = asyncHandler(async (req, res, next) => {
   const { name, title, section_title, section_sub_title } = req.body;
-  const bgImg = req.file;
+  const bgImg = req.file; // Background image
+  const iconImg = req.files?.iconImg; // Icon image (handling file upload)
   const categoryId = req.params.categoryId;
 
   let createdCategorySection = null;
 
-  // Validate inputs early for section updates
+  // Handle section creation/update
   if (section_title || section_sub_title) {
     const isExistedCategorySection = await categorySection.findOne();
 
@@ -1495,7 +1496,7 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
     }
 
     // If only section data is provided, don't create or update the category
-    if (!name || !title || !bgImg) {
+    if (!name || !title || !bgImg || !iconImg) {
       return res.status(200).json(
         new apiSuccess(200, "Section updated successfully", {
           categorySection: createdCategorySection,
@@ -1506,12 +1507,14 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
 
   // Category creation and validation
   if (!categoryId) {
-    // Validate category creation data
-    if (!name || !title || !bgImg) {
+    if (!name || !title || !bgImg || !iconImg) {
       return res
         .status(400)
         .json(
-          new apiError(400, "Category name, title, and image are required")
+          new apiError(
+            400,
+            "Category name, title, background image, and icon image are required"
+          )
         );
     }
 
@@ -1520,22 +1523,34 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
       return next(new apiError(400, "Category already exists"));
     }
 
-    // Upload image to Cloudinary
-    const uploadResult = await uploadCloudinary(
+    // Upload background image to Cloudinary
+    const uploadResultBgImg = await uploadCloudinary(
       bgImg.buffer,
       "cms/categories/bg"
     );
-    if (!uploadResult?.secure_url) {
+    if (!uploadResultBgImg?.secure_url) {
       return res
         .status(500)
-        .json(new apiError(500, "Category image upload failed"));
+        .json(new apiError(500, "Category background image upload failed"));
     }
 
-    // Create new category
+    // Upload icon image to Cloudinary
+    const uploadResultIconImg = await uploadCloudinary(
+      iconImg.buffer,
+      "cms/categories/icons"
+    );
+    if (!uploadResultIconImg?.secure_url) {
+      return res
+        .status(500)
+        .json(new apiError(500, "Category icon image upload failed"));
+    }
+
+    // Create the new category
     const newCategory = new Category({
       name,
       title,
-      bgImg: uploadResult.secure_url,
+      bgImg: uploadResultBgImg.secure_url,
+      iconImg: uploadResultIconImg.secure_url, // Save the icon image URL
     });
 
     const createdCategory = await newCategory.save();
@@ -1553,39 +1568,73 @@ const upsertCategory = asyncHandler(async (req, res, next) => {
       return res.status(404).json(new apiError(404, "Category not found"));
     }
 
-    // Update category fields if provided
+    // Update fields if provided
     existingCategory.name = name || existingCategory.name;
     existingCategory.title = title || existingCategory.title;
 
     if (bgImg) {
       try {
-        // Delete old image if a new one is provided
+        // Delete old background image if a new one is provided
         if (existingCategory.bgImg) {
           const isDeleted = await deleteCloudinaryAsset(existingCategory.bgImg);
           if (!isDeleted) {
             return res
               .status(500)
-              .json(new apiError(500, "Error deleting old image"));
+              .json(new apiError(500, "Error deleting old background image"));
           }
         }
 
-        // Upload the new image
-        const uploadResult = await uploadCloudinary(
+        // Upload the new background image
+        const uploadResultBgImg = await uploadCloudinary(
           bgImg.buffer,
           "cms/categories/bg"
         );
-        if (!uploadResult?.secure_url) {
+        if (!uploadResultBgImg?.secure_url) {
           return res
             .status(500)
             .json(new apiError(500, "Profile picture upload failed"));
         }
 
-        existingCategory.bgImg = uploadResult.secure_url;
+        existingCategory.bgImg = uploadResultBgImg.secure_url;
       } catch (error) {
         console.error("Cloudinary error:", error);
         return res
           .status(500)
           .json(new apiError(500, "Error updating category image"));
+      }
+    }
+
+    if (iconImg) {
+      try {
+        // Delete old icon image if a new one is provided
+        if (existingCategory.iconImg) {
+          const isDeleted = await deleteCloudinaryAsset(
+            existingCategory.iconImg
+          );
+          if (!isDeleted) {
+            return res
+              .status(500)
+              .json(new apiError(500, "Error deleting old icon image"));
+          }
+        }
+
+        // Upload the new icon image
+        const uploadResultIconImg = await uploadCloudinary(
+          iconImg.buffer,
+          "cms/categories/icons"
+        );
+        if (!uploadResultIconImg?.secure_url) {
+          return res
+            .status(500)
+            .json(new apiError(500, "Profile icon upload failed"));
+        }
+
+        existingCategory.iconImg = uploadResultIconImg.secure_url;
+      } catch (error) {
+        console.error("Cloudinary error:", error);
+        return res
+          .status(500)
+          .json(new apiError(500, "Error updating category icon image"));
       }
     }
 
@@ -1636,18 +1685,41 @@ const deleteCategory = asyncHandler(async (req, res, next) => {
     return next(new apiError(404, "Category not found"));
   }
 
+  // Delete the images from Cloudinary before deleting the category
+  if (category.bgImg) {
+    const isDeletedBg = await deleteCloudinaryAsset(category.bgImg);
+    if (!isDeletedBg) {
+      return res
+        .status(500)
+        .json(
+          new apiError(500, "Error deleting background image from Cloudinary")
+        );
+    }
+  }
+
+  if (category.iconImg) {
+    const isDeletedIcon = await deleteCloudinaryAsset(category.iconImg);
+    if (!isDeletedIcon) {
+      return res
+        .status(500)
+        .json(new apiError(500, "Error deleting icon image from Cloudinary"));
+    }
+  }
+
   const deletedCategory = await Category.findByIdAndDelete(categoryId);
 
   if (!deletedCategory) {
     return new apiError(
       500,
-      "Can't delete category at the moment , please try again later"
+      "Can't delete category at the moment, please try again later"
     );
   }
 
   return res
     .status(200)
-    .json(new apiError(200, "Successfully deleted category ", deletedCategory));
+    .json(
+      new apiSuccess(200, "Successfully deleted category", deletedCategory)
+    );
 });
 
 const createUpdateWhyChooseSection = asyncHandler(async (req, res, next) => {

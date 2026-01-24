@@ -13,6 +13,10 @@ const categorySchema = new Schema(
       type: String,
       required: [true, "background image is required"],
     },
+    iconImg: {
+      type: String,
+      required: [true, "icon image is required"],
+    }
   },
   {
     timestamps: true,

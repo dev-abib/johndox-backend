@@ -94,15 +94,26 @@ router.route("/set-feature-properties").post(setFeaturedProperties);
 
 router.route("/get-featured-properties").get(getFeaturedProperties);
 
-router.route("/add-category").post(uploadMedia.single("bgImg"), upsertCategory);
+router.route("/add-category").post(
+  uploadMedia.fields([
+    { name: "bgImg", maxCount: 1 },
+    { name: "iconImg", maxCount: 1 },
+  ]),
+  upsertCategory
+);
 
-router
-  .route("/update-category/:categoryId")
-  .post(uploadMedia.single("bgImg"), upsertCategory);
+router.route("/update-category/:categoryId").post(
+  uploadMedia.fields([
+    { name: "bgImg", maxCount: 1 },
+    { name: "iconImg", maxCount: 1 },
+  ]),
+  upsertCategory
+);
 
 router.route("/get-category-section").get(getCategorySection);
 
 router.route("/delete-category/:categoryId").delete(deleteCategory);
+
 
 router.route("/upsert-why-choose-us").post(createUpdateWhyChooseSection);
 

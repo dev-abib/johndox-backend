@@ -4,7 +4,6 @@ const multer = require("multer");
 const uploadMedia = multer({
   storage: multer.memoryStorage(),
 
-  // Highest allowed (because of video)
   limits: { fileSize: 100 * 1024 * 1024 }, 
 
   fileFilter: (req, file, cb) => {
