@@ -11,6 +11,7 @@ const commonCmsRoutes = require("./Api/common.cms.api");
 const pricingCmsRoutes = require("./Api/pricing.api");
 const paymentRoutes = require("./Api/plan.api");
 const aboutRoutes = require("./Api/about.cms.api");
+const contactRoutes = require("./Api/contact.api");
 
 const { apiError } = require("../Utils/api.error");
 const { asyncHandler } = require("../Utils/asyncHandler");
@@ -36,6 +37,7 @@ router.use(process.env.API_VERSION, commonCmsRoutes);
 router.use(process.env.API_VERSION, pricingCmsRoutes);
 router.use(process.env.API_VERSION, paymentRoutes);
 router.use(process.env.API_VERSION, aboutRoutes);
+router.use(process.env.API_VERSION, contactRoutes);
 
 router.use(
   process.env.API_VERSION,
