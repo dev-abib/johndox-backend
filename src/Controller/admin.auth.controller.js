@@ -40,6 +40,9 @@ const loginAdminController = asyncHandler(async (req, res, next) => {
     password,
     isExistingUser.password
   );
+
+  console.log(isVerifiedPass, "ss");
+
   if (!isVerifiedPass)
     return next(new apiError(400, "Invalid email or password", null, false));
 
@@ -156,7 +159,7 @@ const verifyAdmin = asyncHandler(async (req, res, next) => {
 
   if (!isExistedAdmin) {
     return next(new apiError(401, "Unauthorized request", null, false));
-  }  
+  }
 
   const responsePayload = {
     name: isExistedAdmin.name,
@@ -302,13 +305,12 @@ const updateAdminPassword = asyncHandler(async (req, res, next) => {
   return res
     .status(200)
     .json(
-      new apiSuccess(200, "Admin password updated successfully", null, false)
+      new apiSuccess(200, "Admin password updated successfully", null, true)
     );
 });
 
 const updateSocialSiteData = asyncHandler(async (req, res, next) => {
   const { facebook, instagram, youtube, twitter, linkdein } = req.body;
-  console.log(req.body);
 
   const existingSocialSite = await socailSiteModel.findOne();
 
@@ -362,7 +364,7 @@ const getSocialSiteData = asyncHandler(async (req, res, next) => {
     );
 });
 
-const upInseertCompanyAddress = asyncHandler(async (req, res, next) => {
+const upInsertCompanyAddress = asyncHandler(async (req, res, next) => {
   const {
     addressLine,
     city,
@@ -453,7 +455,7 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
     title,
     name,
     phoneNumber,
-    syestemDetails,
+    systemDetails,
     address,
     email,
     openingHour,
@@ -463,76 +465,144 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
     infCompany,
   } = req.body;
 
-  try {
-    // Find the existing settings from the database
-    const existingSettings = await siteSettingModel.findOne();
+  const existingSettings = await siteSettingModel.findOne();
 
-    // If settings exist, update them
-    if (existingSettings) {
-      existingSettings.title = title || existingSettings.title;
-      existingSettings.name = name || existingSettings.name;
-      existingSettings.phoneNumber =
-        phoneNumber || existingSettings.phoneNumber;
-      existingSettings.syestemDetails =
-        syestemDetails || existingSettings.syestemDetails;
-      existingSettings.address = address || existingSettings.address;
-      existingSettings.email = email || existingSettings.email;
-      existingSettings.openingHour =
-        openingHour || existingSettings.openingHour;
-      existingSettings.copyrightTxt =
-        copyrightTxt || existingSettings.copyrightTxt;
-      existingSettings.infoNumber = infoNumber || existingSettings.infoNumber;
-      existingSettings.infoMsg = infoMsg || existingSettings.infoMsg;
-      existingSettings.infCompany = infCompany || existingSettings.infCompany;
+  const siteLogo = req.files?.siteLogo ? req.files.siteLogo[0] : null;
+  const faviconIcon = req.files?.faviconIcon ? req.files.faviconIcon[0] : null;
 
-      // Save the updated settings
-      await existingSettings.save();
-
-      return res
-        .status(200)
-        .json(
-          new apiSuccess(
-            200,
-            "Site settings updated successfully",
-            existingSettings,
-            false
-          )
+  if (siteLogo) {
+    try {
+      if (existingSettings.siteLogo) {
+        const isDeleted = await deleteCloudinaryAsset(
+          existingSettings.siteLogo
         );
-    }
+        if (!isDeleted) {
+          return res
+            .status(500)
+            .json(new apiError(500, "Error deleting old logo image"));
+        }
+      }
 
-    // If no existing settings, create a new one
-    const created = await siteSettingModel.create({
-      title,
-      name,
-      phoneNumber,
-      syestemDetails,
-      address,
-      email,
-      openingHour,
-      copyrightTxt,
-      infoNumber,
-      infoMsg,
-      infCompany,
-    });
+      const upload_result = await uploadCloudinary(
+        siteLogo.buffer,
+        "cms/site-settings"
+      );
+      if (!upload_result?.secure_url) {
+        return res
+          .status(500)
+          .json(new apiError(500, "Site logo upload failed"));
+      }
+
+      existingSettings.siteLogo = upload_result.secure_url;
+    } catch (error) {
+      console.error("Cloudinary error:", error);
+      return res
+        .status(500)
+        .json(new apiError(500, "Error updating site logo"));
+    }
+  }
+
+  if (faviconIcon) {
+    try {
+      if (existingSettings.faviconIcon) {
+        const isDeleted = await deleteCloudinaryAsset(
+          existingSettings.faviconIcon
+        );
+        if (!isDeleted) {
+          return res
+            .status(500)
+            .json(new apiError(500, "Error deleting old favicon icon"));
+        }
+      }
+
+      const upload_result = await uploadCloudinary(
+        faviconIcon.buffer,
+        "cms/site-settings"
+      );
+      if (!upload_result?.secure_url) {
+        return res
+          .status(500)
+          .json(new apiError(500, "Favicon icon upload failed"));
+      }
+
+      existingSettings.faviconIcon = upload_result.secure_url;
+    } catch (error) {
+      console.error("Cloudinary error:", error);
+      return res
+        .status(500)
+        .json(new apiError(500, "Error updating favicon icon"));
+    }
+  }
+
+  if (existingSettings) {
+    existingSettings.title = title || existingSettings.title;
+    existingSettings.name = name || existingSettings.name;
+    existingSettings.phoneNumber = phoneNumber || existingSettings.phoneNumber;
+    existingSettings.systemDetails =
+      systemDetails || existingSettings.systemDetails; // Fixed typo
+    existingSettings.address = address || existingSettings.address;
+    existingSettings.email = email || existingSettings.email;
+    existingSettings.openingHour = openingHour || existingSettings.openingHour;
+    existingSettings.copyrightTxt =
+      copyrightTxt || existingSettings.copyrightTxt;
+    existingSettings.infoNumber = infoNumber || existingSettings.infoNumber;
+    existingSettings.infoMsg = infoMsg || existingSettings.infoMsg;
+    existingSettings.infCompany = infCompany || existingSettings.infCompany;
+
+    // Save the updated settings
+    await existingSettings.save();
 
     return res
-      .status(201)
+      .status(200)
       .json(
         new apiSuccess(
-          201,
-          "Site settings created successfully",
-          created,
+          200,
+          "Site settings updated successfully",
+          existingSettings,
           false
         )
       );
-  } catch (error) {
-    // Catch any unexpected errors
-    console.error(error);
-    return res.status(500).json({
-      message: "An error occurred while updating the site settings.",
-      error: error.message,
-    });
   }
+
+  let upload_result_favicon;
+
+  if (faviconIcon) {
+     upload_result_favicon = await uploadCloudinary(
+      faviconIcon?.buffer,
+      "cms/site-settings"
+    );
+  }
+
+  let upload_result_site_logo
+
+  if (siteLogo) {
+    upload_result_site_logo = await uploadCloudinary(
+      siteLogo.buffer,
+      "cms/site-settings"
+    );
+  }
+
+  const created = await siteSettingModel.create({
+    title,
+    name,
+    phoneNumber,
+    systemDetails,
+    address,
+    email,
+    openingHour,
+    copyrightTxt,
+    infoNumber,
+    infoMsg,
+    infCompany,
+    siteLogo: upload_result_site_logo?.secure_url,
+    faviconIcon: upload_result_favicon?.secure_url,
+  });
+
+  return res
+    .status(201)
+    .json(
+      new apiSuccess(201, "Site settings created successfully", created, false)
+    );
 });
 
 const getSiteSettings = asyncHandler(async (req, res, next) => {
@@ -966,7 +1036,7 @@ module.exports = {
   updateAdminPassword,
   updateSocialSiteData,
   getSocialSiteData,
-  upInseertCompanyAddress,
+  upInsertCompanyAddress,
   getCompanyAddressData,
   updateSiteSettings,
   getSiteSettings,

@@ -25,6 +25,7 @@ const {
   createDynamicPage,
   getAllDynamicPages,
   getDynamicPageBySlug,
+  upInsertCompanyAddress,
 } = require("../../Controller/admin.auth.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const {
@@ -65,13 +66,16 @@ router.route("/update/social-site-data").put(adminAuthGuard, updateSocialSiteDat
 router.route("/get/social-site-data").get(adminAuthGuard, getSocialSiteData);
 
 // up insert company address
-router.route("/upsert-company-data").put(adminAuthGuard, upInseertCompanyAddress);
+router.route("/upsert-company-data").put(adminAuthGuard, upInsertCompanyAddress);
 
 // get company address data
 router.route("/get/company-data").get(adminAuthGuard, getCompanyAddressData);
 
 // update site settings data
-router.route("/update/site-settings").put(adminAuthGuard, updateSiteSettings);
+router.route("/update/site-settings").put(adminAuthGuard, uploadMedia.fields([
+    { name: "siteLogo", maxCount: 1 },
+    { name: "faviconIcon", maxCount: 1 },
+  ]), updateSiteSettings);
 
 // get site settings data
 router.route("/get/site-settings").get(adminAuthGuard, getSiteSettings);

@@ -16,10 +16,7 @@ const adminAuthGuard = asyncHandler(async (req, res, next) => {
     .find((c) => c.startsWith("admin_token=") || c.startsWith("token="))
     ?.split("=")[1];
 
-  // fallback to cookie token if header token missing
   token = token || cookiesToken;
-
-  console.log(token);
 
   if (!token) {
     return next(
