@@ -2,7 +2,7 @@ const express = require("express");
 const { authguard } = require("../../middleware/authGuard");
 
 const { uploadMedia } = require("../../middleware/multer.middleware");
-const { upsertContactHero, getContactUsHero } = require("../../Controller/contact.cms.controller");
+const { upsertContactHero, getContactUsHero, postUserQuery } = require("../../Controller/contact.cms.controller");
 
 const router = express.Router();
 
@@ -12,5 +12,6 @@ router
 
 router.route("/get-contact-us-hero").get(getContactUsHero);
 
+router.route("/send-user-query").post(postUserQuery);
 
 module.exports = router;

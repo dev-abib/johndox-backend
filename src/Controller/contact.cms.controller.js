@@ -1,10 +1,13 @@
-const { uploadCloudinary, deleteCloudinaryAsset } = require("../Helpers/uploadCloudinary");
+const { mailSender } = require("../Helpers/emailSender");
+const {
+  uploadCloudinary,
+  deleteCloudinaryAsset,
+} = require("../Helpers/uploadCloudinary");
+const { ContactQuery } = require("../Schema/contact.query.schema");
 const { contactUsHero } = require("../Schema/contact.us.hero.schema");
 const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
-
-
 
 const upsertContactHero = asyncHandler(async (req, res, next) => {
   const { title, subtitle } = req.body;
@@ -83,7 +86,62 @@ const getContactUsHero = asyncHandler(async (req, res, next) => {
     );
 });
 
+const postUserQuery = asyncHandler(async (req, res, next) => {
+  const { fullName, email, phoneNumber, subject, message } = req.body;
+
+  if (!fullName) {
+    return next(new apiError(400, "Full name is required"));
+  }
+  if (!email) {
+    return next(new apiError(400, "Email address is required"));
+  }
+  if (!phoneNumber) {
+    return next(new apiError(400, "Phone number is required"));
+  }
+  if (!phoneNumber) {
+    return next(new apiError(400, "Phone number is required"));
+  }
+  if (!subject) {
+    return next(new apiError(400, "Message subject is required"));
+  }
+  if (!message) {
+    return next(new apiError(400, "Message filed is required"));
+  }
+
+  const newMessage = new ContactQuery({
+    fullName,
+    email,
+    phoneNumber,
+    subject,
+    message,
+  });
+
+  const savedMessage = await newMessage.save();
+
+  if (!savedMessage) {
+    return next(new apiError(500, "Can't send query at the moment"));
+  }
+
+  const isMailSend = await mailSender({
+    type: "contact",
+    data: savedMessage,
+    subject: savedMessage?.subject,
+  });
+
+  if (!isMailSend) {
+    return next(
+      new apiError(
+        400,
+        "Can't send query at the moment, please try again later"
+      )
+    );
+  }
+
+  return res.status(200).json(new apiSuccess(200, "Successfully sent query"));
+});
+
 module.exports = {
   upsertContactHero,
   getContactUsHero,
+  postUserQuery,
 };
