@@ -33,7 +33,7 @@ const upsertContactHero = asyncHandler(async (req, res, next) => {
 
     return res
       .status(201)
-      .json(new apiSuccess(201, "Seller hero created successfully", hero));
+      .json(new apiSuccess(201, "Contact hero created successfully", hero));
   }
 
   hero.title = title ?? hero.title;
@@ -64,7 +64,7 @@ const upsertContactHero = asyncHandler(async (req, res, next) => {
   await hero.save();
   return res
     .status(200)
-    .json(new apiSuccess(200, "Seller hero updated successfully", hero));
+    .json(new apiSuccess(200, "Contact hero updated successfully", hero));
 });
 
 // Get the seller hero section details
@@ -73,13 +73,13 @@ const getContactUsHero = asyncHandler(async (req, res, next) => {
 
   if (!hero) {
     // If no seller hero exists, return error
-    return next(new apiError(404, "About hero not found"));
+    return next(new apiError(404, "Contact hero not found"));
   }
 
   return res
     .status(200)
     .json(
-      new apiSuccess(200, "About hero extracted seller hero details", hero)
+      new apiSuccess(200, "Contact hero extracted seller hero details", hero)
     );
 });
 
