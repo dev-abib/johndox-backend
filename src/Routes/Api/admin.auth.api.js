@@ -78,7 +78,7 @@ router.route("/update/site-settings").put(adminAuthGuard, uploadMedia.fields([
   ]), updateSiteSettings);
 
 // get site settings data
-router.route("/get/site-settings").get(adminAuthGuard, getSiteSettings);
+router.route("/get/site-settings").get(getSiteSettings);
 
 // get single user
 router.route("/get-user/:userId").get(adminAuthGuard, getSingleuser);
@@ -89,7 +89,7 @@ router.route("/remove-user/:userId").delete(adminAuthGuard, adminDeleteUser);
 // get all reports
 router.route("/reports").get(adminAuthGuard, getAllReports);
 
-// get sinle users
+// get single users
 router.route("/get-report/:userId").get(adminAuthGuard, getReportsAgainstUser);
 
 // delete report
