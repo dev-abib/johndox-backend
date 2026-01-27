@@ -618,7 +618,7 @@ const getMyProperty = asyncHandler(async (req, res, next) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .lean(), // Use .lean() for performance if you don't need Mongoose document methods
+      .lean(), 
     Property.countDocuments(filter),
   ]);
 

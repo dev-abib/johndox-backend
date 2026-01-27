@@ -20,6 +20,7 @@ const { asyncHandler } = require("../Utils/asyncHandler");
 const { emailChecker, passwordChecker } = require("../Utils/check");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
+const { ContactQuery } = require("../Schema/contact.query.schema");
 
 const loginAdminController = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
@@ -1014,6 +1015,74 @@ const getDynamicPageBySlug = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Page retrieved successfully", { page }, true));
 });
 
+const getUserQueries = asyncHandler(async (req, res, next) => {
+  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt(req.query.limit || "10", 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
+
+  const filter = {};
+
+  if (req.query.search) {
+    const search = String(req.query.search).trim();
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.$or = [
+        { fullName: { $regex: escaped, $options: "i" } },
+        { email: { $regex: escaped, $options: "i" } },
+        { phoneNumber: { $regex: escaped, $options: "i" } },
+        { subject: { $regex: escaped, $options: "i" } },
+      ];
+    }
+  }
+
+
+  const sortKey = String(req.query.sort || "newest")
+    .trim()
+    .toLowerCase();
+  const sortMap = {
+    newest: { createdAt: -1 },
+
+  };
+  const sort = sortMap[sortKey] || sortMap.newest;
+
+  const totalItems = await ContactQuery.countDocuments(filter);
+  const totalPages = Math.ceil(totalItems / limit);
+
+  const queries = await ContactQuery.find(filter)
+    .skip(skip)
+    .limit(limit)
+    .sort(sort);
+
+
+  if (queries.length === 0) {
+    return next(new apiError(404, "Currently no query available"));
+  }
+
+  return res.status(200).send(
+    new apiSuccess(
+      200,
+      "User queries retrieved successfully",
+      {
+        items: queries,
+        pagination: {
+          totalItems,
+          totalPages,
+          currentPage: page,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+        appliedFilters: { ...req.query },
+      },
+      true,
+      null
+    )
+  );
+});
+
 module.exports = {
   loginAdminController,
   verifyAdmin,
@@ -1038,4 +1107,5 @@ module.exports = {
   updateDynamicPage,
   deleteDynamicPage,
   getDynamicPageBySlug,
+  getUserQueries,
 };

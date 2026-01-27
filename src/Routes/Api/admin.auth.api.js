@@ -26,6 +26,7 @@ const {
   getAllDynamicPages,
   getDynamicPageBySlug,
   upInsertCompanyAddress,
+  getUserQueries,
 } = require("../../Controller/admin.auth.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const {
@@ -33,8 +34,6 @@ const {
   getUserAllPost,
 } = require("../../Controller/user.controller");
 const { adminAuthGuard } = require("../../middleware/adminAuthGuard");
-
-
 
 // extracting router from express
 const { Router } = express;
@@ -60,13 +59,17 @@ router.route("/update/admin-pass").put(adminAuthGuard, updateAdminPassword);
 
 // update smtp settings
 
-router.route("/update/social-site-data").put(adminAuthGuard, updateSocialSiteData);
+router
+  .route("/update/social-site-data")
+  .put(adminAuthGuard, updateSocialSiteData);
 
 // get smtp settings
 router.route("/get/social-site-data").get(adminAuthGuard, getSocialSiteData);
 
 // up insert company address
-router.route("/upsert-company-data").put(adminAuthGuard, upInsertCompanyAddress);
+router
+  .route("/upsert-company-data")
+  .put(adminAuthGuard, upInsertCompanyAddress);
 
 // get company address data
 router.route("/get/company-data").get(adminAuthGuard, getCompanyAddressData);
@@ -125,5 +128,8 @@ router
 
 // get dynamic content by slug
 router.route("/dynamic-pages/slug/:slug").get(getDynamicPageBySlug);
+
+// get user queries
+router.route("/get-user-queries").get(getUserQueries);
 
 module.exports = router;
