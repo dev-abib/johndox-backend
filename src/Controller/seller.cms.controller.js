@@ -1,9 +1,13 @@
+const { decodeSessionToken } = require("../Helpers/helper");
 const {
   uploadCloudinary,
   deleteCloudinaryAsset,
 } = require("../Helpers/uploadCloudinary");
+const { buyerQuery } = require("../Schema/buyer.query.schema");
 const { howItWorkItems } = require("../Schema/how.it.works.schema");
 const { howItWorksSection } = require("../Schema/how.it.works.section.schema");
+const { Message } = require("../Schema/message.schema");
+const { Property } = require("../Schema/property.schema");
 const { sellerHero } = require("../Schema/seller.hero.schema");
 const { sellerSubFooter } = require("../Schema/sellers.sub.footer.scehma");
 const { whySellItems } = require("../Schema/why.sell.items.schema");
@@ -518,6 +522,61 @@ const getSellerSubFooter = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Section retrieved successfully", section));
 });
 
+const getSellerStatic = asyncHandler(async (req, res, next) => {
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  if (decodedData?.userData?.role !== "seller") {
+    return next(new apiError(401, "Only seller has statics", null, false));
+  }
+
+  const filter = { author: userId };
+
+  const [myProperties, total] = await Promise.all([
+    Property.find(filter).lean(),
+    Property.countDocuments(filter),
+  ]);
+
+  const myallViews = myProperties.map((item) => {
+    const total = item.views;
+    return total;
+  });
+
+  const totalViews = myallViews.reduce((view, num) => {
+    return view + num;
+  }, 0);
+
+  const messageFilter = {
+    receiverId: userId,
+    status: { $in: ["pending", "delivered"] },
+  };
+
+  const [myMessage, totalMsg] = await Promise.all([
+    Message.find(messageFilter).lean(),
+    Message.countDocuments(messageFilter),
+  ]);
+
+  const sellerFilter = { seller: userId };
+
+  const [myLeads, totalLeads] = await Promise.all([
+    buyerQuery.find(sellerFilter).lean(),
+    buyerQuery.countDocuments(sellerFilter),
+  ]);
+
+
+  const staticsData = {
+    allListing: total,
+    allViews: totalViews,
+    totalLeads: totalLeads,
+    totalUnreadMsg: totalMsg,
+  };
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(200, "Successfully retrieved seller statics ", staticsData)
+    );
+});
 
 module.exports = {
   upsertSellerHero,
@@ -534,4 +593,5 @@ module.exports = {
   getHowItWorks,
   upsertSellerSubFooter,
   getSellerSubFooter,
+  getSellerStatic,
 };

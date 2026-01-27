@@ -360,7 +360,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     amenities,
     category,
     deleteImages = [],
-    // ✅ deleteVideos removed
   } = req.body;
 
   let deleteImagesArray = deleteImages;
@@ -972,7 +971,7 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
       author: property.author
         ? {
             ...property.author,
-            rating, // ✅ { averageRating, ratingCount }
+            rating, 
           }
         : null,
     };

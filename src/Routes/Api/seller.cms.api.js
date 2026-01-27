@@ -15,6 +15,7 @@ const {
   getHowItWorks,
   upsertSellerSubFooter,
   getSellerSubFooter,
+  getSellerStatic,
 } = require("../../Controller/seller.cms.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 
@@ -69,5 +70,7 @@ router.route("/get-how-it-works-section").get(getHowItWorks);
 router.post("/upsert-seller-sub-footer", upsertSellerSubFooter);
 
 router.route("/get-seller-sub-footer").get(getSellerSubFooter);
+
+router.route("/get-seller-statics").get(getSellerStatic);
 
 module.exports = router;
