@@ -13,6 +13,7 @@ const siteSettingSchema = new Schema(
     openingHour: { type: String },
     copyrightTxt: { type: String },
     faviconIcon: { type: String },
+    footerLogo: { type: String },
     infoNumber: { type: String },
     infoMsg: { type: String },
     infCompany: { type: String },

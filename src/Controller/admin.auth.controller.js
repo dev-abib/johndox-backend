@@ -469,6 +469,8 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
 
   const siteLogo = req.files?.siteLogo ? req.files.siteLogo[0] : null;
   const faviconIcon = req.files?.faviconIcon ? req.files.faviconIcon[0] : null;
+  const footerLogo = req.files?.footerLogo ? req.files.footerLogo[0] : null;
+  
 
   if (siteLogo) {
     try {
@@ -534,6 +536,38 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
     }
   }
 
+  if (footerLogo) {
+    try {
+      if (existingSettings.footerLogo) {
+        const isDeleted = await deleteCloudinaryAsset(
+          existingSettings.footerLogo
+        );
+        if (!isDeleted) {
+          return res
+            .status(500)
+            .json(new apiError(500, "Error deleting old favicon icon"));
+        }
+      }
+
+      const upload_result = await uploadCloudinary(
+        footerLogo.buffer,
+        "cms/site-settings"
+      );
+      if (!upload_result?.secure_url) {
+        return res
+          .status(500)
+          .json(new apiError(500, "Footer logo upload failed"));
+      }
+
+      existingSettings.footerLogo = upload_result.secure_url;
+    } catch (error) {
+      console.error("Cloudinary error:", error);
+      return res
+        .status(500)
+        .json(new apiError(500, "Error updating favicon icon"));
+    }
+  }
+
   if (existingSettings) {
     existingSettings.title = title || existingSettings.title;
     existingSettings.name = name || existingSettings.name;
@@ -582,6 +616,16 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
     );
   }
 
+
+   let upload_result_footer_logo;
+
+   if (footerLogo) {
+     upload_result_footer_logo = await uploadCloudinary(
+       footerLogo.buffer,
+       "cms/site-settings"
+     );
+   }
+
   const created = await siteSettingModel.create({
     title,
     name,
@@ -596,6 +640,7 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
     infCompany,
     siteLogo: upload_result_site_logo?.secure_url,
     faviconIcon: upload_result_favicon?.secure_url,
+    footerLogo: upload_result_footer_logo?.secure_url,
   });
 
   return res

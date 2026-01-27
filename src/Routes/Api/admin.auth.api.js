@@ -72,10 +72,15 @@ router.route("/upsert-company-data").put(adminAuthGuard, upInsertCompanyAddress)
 router.route("/get/company-data").get(adminAuthGuard, getCompanyAddressData);
 
 // update site settings data
-router.route("/update/site-settings").put(adminAuthGuard, uploadMedia.fields([
+router.route("/update/site-settings").put(
+  adminAuthGuard,
+  uploadMedia.fields([
     { name: "siteLogo", maxCount: 1 },
     { name: "faviconIcon", maxCount: 1 },
-  ]), updateSiteSettings);
+    { name: "footerLogo", maxCount: 1 },
+  ]),
+  updateSiteSettings
+);
 
 // get site settings data
 router.route("/get/site-settings").get(getSiteSettings);
