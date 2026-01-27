@@ -456,6 +456,7 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
 
   const settings = existingSettings || (await siteSettingModel.create({}));
 
+  // Handle the image uploads first
   const siteLogo = req.files?.siteLogo?.[0];
   const faviconIcon = req.files?.faviconIcon?.[0];
   const footerLogo = req.files?.footerLogo?.[0];
@@ -480,6 +481,7 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
   await updateImage("faviconIcon", faviconIcon);
   await updateImage("footerLogo", footerLogo);
 
+  // Allowed fields for site settings
   const allowedFields = [
     "title",
     "name",
@@ -494,6 +496,7 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
     "infCompany",
   ];
 
+  // Update regular fields
   for (const key of allowedFields) {
     if (Object.prototype.hasOwnProperty.call(req.body, key)) {
       const value = req.body[key];
@@ -501,6 +504,25 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // Update socialLinks (if provided in the request)
+  const socialLinks = [
+    "facebook",
+    "instagram",
+    "linkedin",
+    "x",
+    "youtube",
+    "whatsapp",
+    "telegram",
+  ];
+
+  for (const social of socialLinks) {
+    if (Object.prototype.hasOwnProperty.call(req.body, social)) {
+      const value = req.body[social];
+      settings.socialLinks[social] = value || null; // Set to null if empty string
+    }
+  }
+
+  // Geocode the address if provided
   const addressProvided =
     Object.prototype.hasOwnProperty.call(req.body, "address") &&
     typeof req.body.address === "string" &&
@@ -568,7 +590,6 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
       )
     );
 });
-
 
 const getSiteSettings = asyncHandler(async (req, res, next) => {
   const data = await siteSettingModel.findOne();
