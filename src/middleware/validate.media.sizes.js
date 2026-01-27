@@ -4,7 +4,7 @@ const { apiError } = require("../Utils/api.error");
 const validateMediaSizes = (req, res, next) => {
   if (!req.files) return next();
 
-  const files = Object.values(req.files).flat(); // flatten
+  const files = Object.values(req.files).flat(); 
 
   for (const file of files) {
     const sizeMB = file.size / (1024 * 1024);

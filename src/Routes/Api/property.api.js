@@ -66,7 +66,7 @@ router.route("/delete-property/:propertyId").delete(authguard, deleteProperty);
 // get my listing
 router.route("/my-listings").get(authguard, getMyProperty);
 
-// get all listing
+// get all listing 
 router.route("/all-listings").get(getAllProperties);
 
 // request a property tour

@@ -617,7 +617,7 @@ const getMyProperty = asyncHandler(async (req, res, next) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .lean(), 
+      .lean(),
     Property.countDocuments(filter),
   ]);
 
@@ -971,7 +971,7 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
       author: property.author
         ? {
             ...property.author,
-            rating, 
+            rating,
           }
         : null,
     };
@@ -1470,11 +1470,10 @@ const getFeaturedProperties = asyncHandler(async (req, res, next) => {
 
 const upsertCategory = asyncHandler(async (req, res, next) => {
   const { name, title, section_title, section_sub_title } = req.body;
-  const bgImg = req.files?.bgImg ? req.files.bgImg[0] : null; 
-  const iconImg = req.files?.iconImg ? req.files.iconImg[0] : null; 
+  const bgImg = req.files?.bgImg ? req.files.bgImg[0] : null;
+  const iconImg = req.files?.iconImg ? req.files.iconImg[0] : null;
   const categoryId = req.params.categoryId;
   let createdCategorySection = null;
-
 
   if (section_title || section_sub_title) {
     const isExistedCategorySection = await categorySection.findOne();
@@ -2002,6 +2001,8 @@ const loanEstimator = asyncHandler(async (req, res, next) => {
 
 const getSingleProperty = asyncHandler(async (req, res, next) => {
   const { propertyId } = req.params;
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
 
   const property = await Property.findById(propertyId).populate({
     path: "author",
@@ -2039,10 +2040,14 @@ const getSingleProperty = asyncHandler(async (req, res, next) => {
   }
 
   const data = property.toObject();
+
   data.author = {
     ...data.author,
     rating,
   };
+
+  const isFavourite = property.favourites.includes(userId);
+  data.isFavourite = isFavourite;
 
   return res
     .status(200)
