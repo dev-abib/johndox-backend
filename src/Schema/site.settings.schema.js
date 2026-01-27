@@ -17,9 +17,35 @@ const siteSettingSchema = new Schema(
     infoNumber: { type: String },
     infoMsg: { type: String },
     infCompany: { type: String },
+    location: {
+      geo: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point",
+        },
+        coordinates: {
+          type: [Number],
+          default: undefined,
+        },
+      },
+      lat: { type: Number, default: undefined },
+      lng: { type: Number, default: undefined },
+    },
+    socialLinks: {
+      facebook: String,
+      instagram: String,
+      linkedin: String,
+      x: String,
+      youtube: String,
+      whatsapp: String,
+      telegram: String, 
+    },
   },
   { timestamps: true }
 );
+
+siteSettingSchema.index({ "location.geo": "2dsphere" });
 
 const siteSettingModel =
   models.siteSettings || model("siteSettings", siteSettingSchema);

@@ -1,3 +1,4 @@
+const { default: axios } = require("axios");
 const {
   createAdminSessionToken,
   verifyPassword,
@@ -451,204 +452,123 @@ const getCompanyAddressData = asyncHandler(async (req, res, next) => {
 });
 
 const updateSiteSettings = asyncHandler(async (req, res, next) => {
-  const {
-    title,
-    name,
-    phoneNumber,
-    systemDetails,
-    address,
-    email,
-    openingHour,
-    copyrightTxt,
-    infoNumber,
-    infoMsg,
-    infCompany,
-  } = req.body;
-
   const existingSettings = await siteSettingModel.findOne();
 
-  const siteLogo = req.files?.siteLogo ? req.files.siteLogo[0] : null;
-  const faviconIcon = req.files?.faviconIcon ? req.files.faviconIcon[0] : null;
-  const footerLogo = req.files?.footerLogo ? req.files.footerLogo[0] : null;
-  
+  const settings = existingSettings || (await siteSettingModel.create({}));
 
-  if (siteLogo) {
-    try {
-      if (existingSettings.siteLogo) {
-        const isDeleted = await deleteCloudinaryAsset(
-          existingSettings.siteLogo
-        );
-        if (!isDeleted) {
-          return res
-            .status(500)
-            .json(new apiError(500, "Error deleting old logo image"));
-        }
-      }
+  const siteLogo = req.files?.siteLogo?.[0];
+  const faviconIcon = req.files?.faviconIcon?.[0];
+  const footerLogo = req.files?.footerLogo?.[0];
 
-      const upload_result = await uploadCloudinary(
-        siteLogo.buffer,
-        "cms/site-settings"
-      );
-      if (!upload_result?.secure_url) {
-        return res
-          .status(500)
-          .json(new apiError(500, "Site logo upload failed"));
-      }
+  const updateImage = async (fieldName, file) => {
+    if (!file) return;
 
-      existingSettings.siteLogo = upload_result.secure_url;
-    } catch (error) {
-      console.error("Cloudinary error:", error);
-      return res
-        .status(500)
-        .json(new apiError(500, "Error updating site logo"));
+    if (settings[fieldName]) {
+      const isDeleted = await deleteCloudinaryAsset(settings[fieldName]);
+      if (!isDeleted)
+        throw new apiError(500, `Error deleting old ${fieldName}`);
+    }
+
+    const upload = await uploadCloudinary(file.buffer, "cms/site-settings");
+    if (!upload?.secure_url)
+      throw new apiError(500, `${fieldName} upload failed`);
+
+    settings[fieldName] = upload.secure_url;
+  };
+
+  await updateImage("siteLogo", siteLogo);
+  await updateImage("faviconIcon", faviconIcon);
+  await updateImage("footerLogo", footerLogo);
+
+  const allowedFields = [
+    "title",
+    "name",
+    "phoneNumber",
+    "systemDetails",
+    "address",
+    "email",
+    "openingHour",
+    "copyrightTxt",
+    "infoNumber",
+    "infoMsg",
+    "infCompany",
+  ];
+
+  for (const key of allowedFields) {
+    if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+      const value = req.body[key];
+      settings[key] = value;
     }
   }
 
-  if (faviconIcon) {
-    try {
-      if (existingSettings.faviconIcon) {
-        const isDeleted = await deleteCloudinaryAsset(
-          existingSettings.faviconIcon
-        );
-        if (!isDeleted) {
-          return res
-            .status(500)
-            .json(new apiError(500, "Error deleting old favicon icon"));
-        }
-      }
+  const addressProvided =
+    Object.prototype.hasOwnProperty.call(req.body, "address") &&
+    typeof req.body.address === "string" &&
+    req.body.address.trim().length > 0;
 
-      const upload_result = await uploadCloudinary(
-        faviconIcon.buffer,
-        "cms/site-settings"
+  if (addressProvided) {
+    const key = process.env.LOCATIONIQ_KEY;
+    if (!key) return next(new apiError(500, "No Location key provided"));
+
+    const url = "https://us1.locationiq.com/v1/search";
+
+    const response = await axios.get(url, {
+      params: {
+        key,
+        q: req.body.address.trim(),
+        format: "json",
+        limit: 1,
+        addressdetails: 1,
+        normalizecity: 1,
+      },
+      timeout: 10000,
+    });
+
+    if (!response?.data?.length) {
+      return next(
+        new apiError(400, "Unable to geocode the provided address", null, false)
       );
-      if (!upload_result?.secure_url) {
-        return res
-          .status(500)
-          .json(new apiError(500, "Favicon icon upload failed"));
-      }
-
-      existingSettings.faviconIcon = upload_result.secure_url;
-    } catch (error) {
-      console.error("Cloudinary error:", error);
-      return res
-        .status(500)
-        .json(new apiError(500, "Error updating favicon icon"));
     }
-  }
 
-  if (footerLogo) {
-    try {
-      if (existingSettings.footerLogo) {
-        const isDeleted = await deleteCloudinaryAsset(
-          existingSettings.footerLogo
-        );
-        if (!isDeleted) {
-          return res
-            .status(500)
-            .json(new apiError(500, "Error deleting old favicon icon"));
-        }
-      }
+    const lat = Number(response.data[0].lat);
+    const lng = Number(response.data[0].lon);
 
-      const upload_result = await uploadCloudinary(
-        footerLogo.buffer,
-        "cms/site-settings"
-      );
-      if (!upload_result?.secure_url) {
-        return res
-          .status(500)
-          .json(new apiError(500, "Footer logo upload failed"));
-      }
-
-      existingSettings.footerLogo = upload_result.secure_url;
-    } catch (error) {
-      console.error("Cloudinary error:", error);
-      return res
-        .status(500)
-        .json(new apiError(500, "Error updating favicon icon"));
-    }
-  }
-
-  if (existingSettings) {
-    existingSettings.title = title || existingSettings.title;
-    existingSettings.name = name || existingSettings.name;
-    existingSettings.phoneNumber = phoneNumber || existingSettings.phoneNumber;
-    existingSettings.systemDetails =
-      systemDetails || existingSettings.systemDetails; // Fixed typo
-    existingSettings.address = address || existingSettings.address;
-    existingSettings.email = email || existingSettings.email;
-    existingSettings.openingHour = openingHour || existingSettings.openingHour;
-    existingSettings.copyrightTxt =
-      copyrightTxt || existingSettings.copyrightTxt;
-    existingSettings.infoNumber = infoNumber || existingSettings.infoNumber;
-    existingSettings.infoMsg = infoMsg || existingSettings.infoMsg;
-    existingSettings.infCompany = infCompany || existingSettings.infCompany;
-
-    // Save the updated settings
-    await existingSettings.save();
-
-    return res
-      .status(200)
-      .json(
-        new apiSuccess(
-          200,
-          "Site settings updated successfully",
-          existingSettings,
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      return next(
+        new apiError(
+          400,
+          "Invalid coordinates from geocoding service",
+          null,
           false
         )
       );
+    }
+
+    settings.location ??= {};
+    settings.location.geo ??= { type: "Point", coordinates: [] };
+
+    settings.location.geo.type = "Point";
+    settings.location.geo.coordinates = [lng, lat];
+    settings.location.lat = lat;
+    settings.location.lng = lng;
   }
 
-  let upload_result_favicon;
-
-  if (faviconIcon) {
-     upload_result_favicon = await uploadCloudinary(
-      faviconIcon?.buffer,
-      "cms/site-settings"
-    );
-  }
-
-  let upload_result_site_logo
-
-  if (siteLogo) {
-    upload_result_site_logo = await uploadCloudinary(
-      siteLogo.buffer,
-      "cms/site-settings"
-    );
-  }
-
-
-   let upload_result_footer_logo;
-
-   if (footerLogo) {
-     upload_result_footer_logo = await uploadCloudinary(
-       footerLogo.buffer,
-       "cms/site-settings"
-     );
-   }
-
-  const created = await siteSettingModel.create({
-    title,
-    name,
-    phoneNumber,
-    systemDetails,
-    address,
-    email,
-    openingHour,
-    copyrightTxt,
-    infoNumber,
-    infoMsg,
-    infCompany,
-    siteLogo: upload_result_site_logo?.secure_url,
-    faviconIcon: upload_result_favicon?.secure_url,
-    footerLogo: upload_result_footer_logo?.secure_url,
-  });
+  await settings.save();
 
   return res
-    .status(201)
+    .status(existingSettings ? 200 : 201)
     .json(
-      new apiSuccess(201, "Site settings created successfully", created, false)
+      new apiSuccess(
+        existingSettings ? 200 : 201,
+        existingSettings
+          ? "Site settings updated successfully"
+          : "Site settings created successfully",
+        settings,
+        false
+      )
     );
 });
+
 
 const getSiteSettings = asyncHandler(async (req, res, next) => {
   const data = await siteSettingModel.findOne();
