@@ -2,7 +2,7 @@
 // External dependencies
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const axios = require("axios");
+const { OAuth2Client } = require("google-auth-library");
 
 /**
  * Hashes the user's password for secure storage.
@@ -163,7 +163,16 @@ const otpGenerator = () => {
   return aleaRNGFactory(new Date()).uInt32().toString().slice(0, 4);
 };
 
+const verifyGoogleToken = async (idToken) => {
+  const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+  const ticket = await client.verifyIdToken({
+    idToken,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  return ticket.getPayload();
+};
 
 module.exports = {
   createSessionToken,
@@ -173,4 +182,5 @@ module.exports = {
   otpGenerator,
   createAdminSessionToken,
   verifyAdminSessionToken,
+  verifyGoogleToken,
 };

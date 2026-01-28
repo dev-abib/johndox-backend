@@ -15,6 +15,7 @@ const {
   resendOtp,
   rateUser,
   contactSupportForMe,
+  googleAuthController,
 } = require("../../Controller/user.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const { authguard } = require("../../middleware/authGuard");
@@ -67,5 +68,8 @@ router.route("/rate/:reciverId").post(authguard, rateUser);
 
 // contact support
 router.route("/contact-support").post(contactSupportForMe);
+
+// google login 
+router.route("/auth/google-login").post(googleAuthController);
 
 module.exports = router;

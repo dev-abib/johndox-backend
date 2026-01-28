@@ -8,7 +8,11 @@ const {
   createSessionToken,
   otpGenerator,
   decodeSessionToken,
+  verifyGoogleToken,
 } = require("../Helpers/helper");
+const crypto = require("crypto");
+
+
 const {
   uploadCloudinary,
   deleteCloudinaryAsset,
@@ -377,7 +381,7 @@ const verifyEmail = asyncHandler(async (req, res, next) => {
       name: isExisteduser.firstName || "User",
       emailAdress: email,
       subject: "Your One-Time Password (OTP)",
-      otp: otp, 
+      otp: otp,
     });
 
     // Send a success response
@@ -805,6 +809,83 @@ const contactSupportForMe = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "successfully sent query", null, true, false));
 });
 
+const googleAuthController = asyncHandler(async (req, res, next) => {
+  const { idToken, role } = req.body;
+
+  const roles = ["buyer", "seller"];
+
+  if (!idToken) {
+    return next(new apiError(400, "Google ID token is required"));
+  }
+
+  const userRole = roles.includes(role) ? role : "buyer";
+
+  const payload = await verifyGoogleToken(idToken);
+  const { email, name, picture } = payload;
+
+  if (!email) {
+    return next(new apiError(400, "Email not found in Google account"));
+  }
+
+  const nameParts = name?.split(" ") || [];
+  const firstName = nameParts.shift() || "Google";
+  const lastName = nameParts.join(" ") || "User";
+
+  let existingUser = await user.findOne({ email });
+
+  if (!existingUser && !userRole) {
+    return next(
+      new apiError(
+        400,
+        "To create a account , you must have to provide user role"
+      )
+    );
+  }
+
+  if (!existingUser) {
+    existingUser = await user.create({
+      firstName,
+      lastName,
+      email,
+      role: userRole,
+      password: crypto.randomBytes(32).toString("hex"),
+      profilePicture: picture || null,
+      isVerifiedAccount: true,
+      isOtpVerified: true,
+      termsAndConditions: "true",
+    });
+  }
+
+  const token = await createSessionToken({
+    name: existingUser.firstName,
+    email: existingUser.email,
+    userId: existingUser._id,
+    role: existingUser.role,
+  });
+
+  if (token) {
+    existingUser.refreshToken = token;
+    await existingUser.save();
+  }
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "Google authentication successful",
+        {
+          name: existingUser.firstName,
+          email: existingUser.email,
+          role: existingUser.role,
+          profilePicture: existingUser.profilePicture,
+          token,
+        },
+        true
+      )
+    );
+});
+
 module.exports = {
   registerUserController,
   loginUserController,
@@ -821,4 +902,5 @@ module.exports = {
   getSingleuser,
   rateUser,
   contactSupportForMe,
+  googleAuthController,
 };
