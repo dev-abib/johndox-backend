@@ -21,6 +21,7 @@ const { emailChecker, passwordChecker } = require("../Utils/check");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const { ContactQuery } = require("../Schema/contact.query.schema");
+const { smtpSettings } = require("../Schema/smtp.settings.schema");
 
 const loginAdminController = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
@@ -1038,13 +1039,11 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
     }
   }
 
-
   const sortKey = String(req.query.sort || "newest")
     .trim()
     .toLowerCase();
   const sortMap = {
     newest: { createdAt: -1 },
-
   };
   const sort = sortMap[sortKey] || sortMap.newest;
 
@@ -1055,7 +1054,6 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
     .skip(skip)
     .limit(limit)
     .sort(sort);
-
 
   if (queries.length === 0) {
     return next(new apiError(404, "Currently no query available"));
@@ -1083,6 +1081,106 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
   );
 });
 
+const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
+  const {
+    mail_mailer,
+    mail_host,
+    mail_port,
+    mail_user_name,
+    mail_password,
+    mail_encryption,
+    mail_from_name,
+    mail_from_address,
+    super_admin_mail,
+  } = req.body;
+
+  let smtp_settings = await smtpSettings.findOne();
+
+  if (!smtp_settings) {
+    if (!mail_mailer) {
+      return next(new apiError(400, "Mail mailer is required"));
+    }
+    if (!mail_host) {
+      return next(new apiError(400, "Mail host is required"));
+    }
+    if (typeof mail_port !== "number") {
+      return next(new apiError(400, "Mail port is must have to be a number"));
+    }
+    if (!mail_user_name) {
+      return next(new apiError(400, "Mail user name is required"));
+    }
+    if (!mail_password) {
+      return next(new apiError(400, "Mail password is required"));
+    }
+    if (!mail_encryption) {
+      return next(new apiError(400, "Mail password is required"));
+    }
+    if (!mail_from_name) {
+      return next(new apiError(400, "Mail from name is required"));
+    }
+    if (!mail_from_address) {
+      return next(new apiError(400, "Mail from address is required"));
+    }
+    if (!emailChecker(mail_from_address)) {
+      return next(new apiError(400, "Invalid email address"));
+    }
+    if (!super_admin_mail) {
+      return next(new apiError(400, "Invalid super admin email address"));
+    }
+    if (!emailChecker(super_admin_mail)) {
+      return next(new apiError(400, "Invalid super admin email address"));
+    }
+
+    smtp_settings = new smtpSettings({
+      mail_mailer,
+      mail_host,
+      mail_port,
+      mail_user_name,
+      mail_password,
+      mail_encryption,
+      mail_from_name,
+      mail_from_address,
+      super_admin_mail,
+    });
+
+    await smtp_settings.save();
+
+    return res
+      .status(200)
+      .json(new apiSuccess(201, "Smtp settings created successfully "));
+  } else {
+    if (mail_port && typeof mail_port !== "number") {
+      return next(new apiError(400, "Mail port is must have to be a number"));
+    }
+    if (super_admin_mail && !emailChecker(super_admin_mail)) {
+      return next(new apiError(400, "Invalid super admin email address"));
+    }
+
+    if (mail_from_address && !emailChecker(mail_from_address)) {
+      return next(new apiError(400, "Invalid mail from email address"));
+    }
+
+    smtp_settings.mail_mailer = mail_mailer || smtp_settings.mail_mailer;
+    smtpSettings.mail_host = mail_host || smtpSettings.mail_host;
+    smtpSettings.mail_port = mail_port || smtpSettings.mail_port;
+    smtpSettings.mail_user_name = mail_user_name || smtpSettings.mail_user_name;
+    smtpSettings.mail_password = mail_password || smtpSettings.mail_password;
+    smtpSettings.mail_encryption =
+      mail_encryption || smtpSettings.mail_encryption;
+    smtpSettings.mail_from_name = mail_from_name || smtpSettings.mail_from_name;
+    smtpSettings.mail_from_address =
+      mail_from_address || smtpSettings.mail_from_address;
+    smtpSettings.super_admin_mail =
+      super_admin_mail || smtpSettings.super_admin_mail;
+
+    await siteSettingModel.save();
+
+    return res
+      .status(200)
+      .json(new apiSuccess(200, "Successfully updated smtp settings"));
+  }
+});
+
 module.exports = {
   loginAdminController,
   verifyAdmin,
@@ -1108,4 +1206,5 @@ module.exports = {
   deleteDynamicPage,
   getDynamicPageBySlug,
   getUserQueries,
+  upsertSmtpCredentials,
 };
