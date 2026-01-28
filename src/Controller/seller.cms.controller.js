@@ -11,6 +11,7 @@ const { Property } = require("../Schema/property.schema");
 const { PropertyView } = require("../Schema/property.view.schema");
 const { sellerHero } = require("../Schema/seller.hero.schema");
 const { sellerSubFooter } = require("../Schema/sellers.sub.footer.scehma");
+const { user } = require("../Schema/user.schema");
 const { whySellItems } = require("../Schema/why.sell.items.schema");
 const {
   whySellWithTerraLink,
@@ -620,17 +621,25 @@ const trackPropertyView = asyncHandler(async (req, res, next) => {
   );
 });
 
-
-getProfileAnalytics = async (req, res) => {
-  const sellerId = req.user._id;
+const getProfileAnalytics = asyncHandler(async (req, res, next) => {
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
   const days = Number(req.query.days || 30);
+
+  const seller = await user.findById(userId);
+
+  if (!seller) {
+    return next(new apiError(404, "Seller not found"));
+  }
+
+  if (seller.role !== "seller") {
+    return next(new apiError(404, "Only sellers have property analytics"));
+  }
 
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-
-  const properties = await Property.find({ author: sellerId }, { _id: 1 });
-
+  const properties = await Property.find({ author: userId }, { _id: 1 });
   const propertyIds = properties.map((p) => p._id);
 
   const views = await PropertyView.aggregate([
@@ -642,38 +651,32 @@ getProfileAnalytics = async (req, res) => {
     },
     {
       $group: {
-        _id: {
-          $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
-        },
+        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
         views: { $sum: 1 },
       },
     },
   ]);
 
-
   const leads = await buyerQuery.aggregate([
     {
       $match: {
-        seller: sellerId,
+        seller: userId,
         createdAt: { $gte: startDate },
       },
     },
     {
       $group: {
-        _id: {
-          $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
-        },
+        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
         leads: { $sum: 1 },
       },
     },
   ]);
 
+  // Map existing data by date
   const map = {};
-
   views.forEach((v) => {
     map[v._id] = { date: v._id, views: v.views, leads: 0 };
   });
-
   leads.forEach((l) => {
     if (!map[l._id]) {
       map[l._id] = { date: l._id, views: 0, leads: l.leads };
@@ -682,15 +685,25 @@ getProfileAnalytics = async (req, res) => {
     }
   });
 
+  // Generate all dates in range and fill zeros if missing
+  const analytics = [];
+  for (let i = 0; i < days; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - (days - i - 1));
+    const formattedDate = date.toISOString().split("T")[0];
+
+    analytics.push(
+      map[formattedDate] || { date: formattedDate, views: 0, leads: 0 }
+    );
+  }
+
   res.status(200).json(
     new apiSuccess(200, "Profile performance analytics fetched successfully", {
       rangeInDays: days,
-      analytics: Object.values(map).sort((a, b) =>
-        a.date.localeCompare(b.date)
-      ),
+      analytics,
     })
   );
-};
+});
 
 
 module.exports = {
@@ -710,4 +723,5 @@ module.exports = {
   getSellerSubFooter,
   getSellerStatic,
   trackPropertyView,
+  getProfileAnalytics,
 };

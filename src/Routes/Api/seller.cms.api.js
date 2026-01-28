@@ -17,6 +17,7 @@ const {
   getSellerSubFooter,
   getSellerStatic,
   trackPropertyView,
+  getProfileAnalytics,
 } = require("../../Controller/seller.cms.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 
@@ -75,5 +76,7 @@ router.route("/get-seller-sub-footer").get(getSellerSubFooter);
 router.route("/get-seller-statics").get(getSellerStatic);
 
 router.route("/property/:propertyId/view").get(trackPropertyView);
+
+router.route("/get-my-property-analytics").get(getProfileAnalytics);
 
 module.exports = router;
