@@ -8,6 +8,7 @@ const { howItWorkItems } = require("../Schema/how.it.works.schema");
 const { howItWorksSection } = require("../Schema/how.it.works.section.schema");
 const { Message } = require("../Schema/message.schema");
 const { Property } = require("../Schema/property.schema");
+const { PropertyView } = require("../Schema/property.view.schema");
 const { sellerHero } = require("../Schema/seller.hero.schema");
 const { sellerSubFooter } = require("../Schema/sellers.sub.footer.scehma");
 const { whySellItems } = require("../Schema/why.sell.items.schema");
@@ -563,7 +564,6 @@ const getSellerStatic = asyncHandler(async (req, res, next) => {
     buyerQuery.countDocuments(sellerFilter),
   ]);
 
-
   const staticsData = {
     allListing: total,
     allViews: totalViews,
@@ -577,6 +577,121 @@ const getSellerStatic = asyncHandler(async (req, res, next) => {
       new apiSuccess(200, "Successfully retrieved seller statics ", staticsData)
     );
 });
+
+const trackPropertyView = asyncHandler(async (req, res, next) => {
+  const { propertyId } = req.params;
+  const ipAddress = req.ip;
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  if (!propertyId) {
+    return next(new apiError(400, "Property ID is required"));
+  }
+
+  const property = await Property.findById(propertyId);
+  if (!property) {
+    return next(new apiError(404, "Property not found"));
+  }
+
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+
+  const existingView = await PropertyView.findOne({
+    propertyId,
+    $or: [{ userId }, { ipAddress }],
+    viewedAt: { $gte: sixHoursAgo },
+  });
+
+  if (!existingView) {
+    property.views += 1;
+    await property.save();
+
+    await PropertyView.create({
+      propertyId,
+      userId,
+      ipAddress,
+    });
+  }
+
+  res.status(200).json(
+    new apiSuccess(200, "Property view tracked successfully", {
+      propertyId,
+      totalViews: property.views,
+    })
+  );
+});
+
+
+getProfileAnalytics = async (req, res) => {
+  const sellerId = req.user._id;
+  const days = Number(req.query.days || 30);
+
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+
+  const properties = await Property.find({ author: sellerId }, { _id: 1 });
+
+  const propertyIds = properties.map((p) => p._id);
+
+  const views = await PropertyView.aggregate([
+    {
+      $match: {
+        propertyId: { $in: propertyIds },
+        createdAt: { $gte: startDate },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+        },
+        views: { $sum: 1 },
+      },
+    },
+  ]);
+
+
+  const leads = await buyerQuery.aggregate([
+    {
+      $match: {
+        seller: sellerId,
+        createdAt: { $gte: startDate },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+        },
+        leads: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const map = {};
+
+  views.forEach((v) => {
+    map[v._id] = { date: v._id, views: v.views, leads: 0 };
+  });
+
+  leads.forEach((l) => {
+    if (!map[l._id]) {
+      map[l._id] = { date: l._id, views: 0, leads: l.leads };
+    } else {
+      map[l._id].leads = l.leads;
+    }
+  });
+
+  res.status(200).json(
+    new apiSuccess(200, "Profile performance analytics fetched successfully", {
+      rangeInDays: days,
+      analytics: Object.values(map).sort((a, b) =>
+        a.date.localeCompare(b.date)
+      ),
+    })
+  );
+};
+
 
 module.exports = {
   upsertSellerHero,
@@ -594,4 +709,5 @@ module.exports = {
   upsertSellerSubFooter,
   getSellerSubFooter,
   getSellerStatic,
+  trackPropertyView,
 };
