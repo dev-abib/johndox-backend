@@ -16,9 +16,12 @@ const {
   rateUser,
   contactSupportForMe,
   googleAuthController,
+  getNotificationPreference,
+  upsertNotificationsPreference,
 } = require("../../Controller/user.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const { authguard } = require("../../middleware/authGuard");
+const { notificationPreference } = require("../../Schema/notifications.schema");
 
 // extracting router from express
 const { Router } = express;
@@ -69,7 +72,13 @@ router.route("/rate/:reciverId").post(authguard, rateUser);
 // contact support
 router.route("/contact-support").post(contactSupportForMe);
 
-// google login 
+// google login
 router.route("/auth/google-login").post(googleAuthController);
+
+// upsert notification preference
+router.route("/upsert-notification-preference").post(authguard,upsertNotificationsPreference);
+
+//get notification preference
+router.route("/get-notification-preference").get(authguard,getNotificationPreference);
 
 module.exports = router;

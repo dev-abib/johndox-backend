@@ -12,7 +12,6 @@ const {
 } = require("../Helpers/helper");
 const crypto = require("crypto");
 
-
 const {
   uploadCloudinary,
   deleteCloudinaryAsset,
@@ -26,6 +25,7 @@ const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
 const { emailChecker, passwordChecker } = require("../Utils/check");
 const { supportMessage } = require("../Schema/support.message.schema");
+const { notificationPreference } = require("../Schema/notifications.schema");
 
 // register user controller
 const registerUserController = asyncHandler(async (req, res, next) => {
@@ -868,20 +868,99 @@ const googleAuthController = asyncHandler(async (req, res, next) => {
     await existingUser.save();
   }
 
+  return res.status(200).json(
+    new apiSuccess(
+      200,
+      "Google authentication successful",
+      {
+        name: existingUser.firstName,
+        email: existingUser.email,
+        role: existingUser.role,
+        profilePicture: existingUser.profilePicture,
+        token,
+      },
+      true
+    )
+  );
+});
+
+const upsertNotificationsPreference = asyncHandler(async (req, res, next) => {
+  const {
+    propertyAlert,
+    messageNotifications,
+    priceUpdates,
+    listingActivity,
+    promotionsAndOffer,
+    emailNotifications,
+  } = req.body;
+
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  const User = await user.findById(userId);
+  if (!User) {
+    return next(new apiError(404, "User not found"));
+  }
+
+  let notification = await notificationPreference.findOne({ author: userId });
+
+  if (notification) {
+    notification.propertyAlert = propertyAlert ?? notification.propertyAlert;
+    notification.messageNotifications =
+      messageNotifications ?? notification.messageNotifications;
+    notification.priceUpdates = priceUpdates ?? notification.priceUpdates;
+    notification.listingActivity =
+      listingActivity ?? notification.listingActivity;
+    notification.promotionsAndOffer =
+      promotionsAndOffer ?? notification.promotionsAndOffer;
+    notification.emailNotifications =
+      emailNotifications ?? notification.emailNotifications;
+
+    await notification.save();
+  } else {
+    notification = await new notificationPreference({
+      author: userId,
+      propertyAlert,
+      messageNotifications,
+      priceUpdates,
+      listingActivity,
+      promotionsAndOffer,
+      emailNotifications,
+    });
+    await notification.save();
+  }
+
   return res
     .status(200)
     .json(
       new apiSuccess(
         200,
-        "Google authentication successful",
-        {
-          name: existingUser.firstName,
-          email: existingUser.email,
-          role: existingUser.role,
-          profilePicture: existingUser.profilePicture,
-          token,
-        },
-        true
+        "Successfully upserted notification preference",
+        notification
+      )
+    );
+});
+
+
+const getNotificationPreference = asyncHandler(async (req, res, next) => {
+  const decodedData = await decodeSessionToken(req);
+  const userId = decodedData?.userData?.userId;
+
+  const myNotificationSetting = await notificationPreference.findOne({
+    author: userId,
+  });
+
+  if (!myNotificationSetting) {
+    return next(new apiError(404, "No notifications preference created"));
+  }
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "Successfully retrieved notifications preference",
+        myNotificationSetting
       )
     );
 });
@@ -903,4 +982,6 @@ module.exports = {
   rateUser,
   contactSupportForMe,
   googleAuthController,
+  upsertNotificationsPreference,
+  getNotificationPreference,
 };
