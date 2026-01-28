@@ -503,7 +503,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
   );
 });
 
-// reset passwrod done
+// reset password done
 const resetPassword = asyncHandler(async (req, res, next) => {
   const { password, confirmPassword } = req.body;
 
@@ -546,7 +546,13 @@ const updateUser = asyncHandler(async (req, res, next) => {
     return next(new apiError(404, "User not found", null, false));
 
   const { firstName, lastName, phoneNumber } = req.body;
-  const profilePicture = req.file;
+
+  const profilePicture = req.files?.profilePicture
+    ? req.files.profilePicture[0]
+    : null;
+  const identity_document = req.files?.identity_document
+    ? req.files.identity_document[0]
+    : null;
 
   if (profilePicture) {
     try {
@@ -569,6 +575,32 @@ const updateUser = asyncHandler(async (req, res, next) => {
       }
 
       isExisteduser.profilePicture = uploadResult.secure_url;
+    } catch (error) {
+      console.error("Cloudinary error:", error);
+      return next(new apiError(500, "Error updating profile picture"));
+    }
+  }
+
+  if (identity_document) {
+    try {
+      if (isExisteduser.identity_document) {
+        let isDeleted = await deleteCloudinaryAsset(
+          isExisteduser.identity_document
+        );
+        if (!isDeleted) {
+          return next(new apiError(500, "Error deleting old profile picture"));
+        }
+      }
+
+      const uploadResult = await uploadCloudinary(
+        identity_document.buffer,
+        "identity-documents"
+      );
+      if (!uploadResult?.secure_url) {
+        return next(new apiError(500, "Profile picture upload failed"));
+      }
+
+      isExisteduser.identity_document = uploadResult.secure_url;
     } catch (error) {
       console.error("Cloudinary error:", error);
       return next(new apiError(500, "Error updating profile picture"));

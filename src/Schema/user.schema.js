@@ -29,8 +29,7 @@ const userSchema = new Schema(
     socketId: { type: String, default: null },
     sessionDuration: { type: String },
     rating: { type: String, ref: "UserRating", default: null },
-    identity_document: { type: mongoose.Schema.Types.ObjectId, default: null },
-
+    identity_document: { type: String, default: null },
     activeListings: { type: Number, default: 0 },
     totalViews: { type: Number, default: 0 },
     totalLeads: { type: Number, default: 0 },

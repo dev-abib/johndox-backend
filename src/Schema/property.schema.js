@@ -130,6 +130,10 @@ const propertySchema = new Schema(
       type: Number,
       default: 0,
     },
+    leadCount: {
+      type: Number,
+      default: 0,
+    },
 
     favourites: [
       {

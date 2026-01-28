@@ -627,7 +627,6 @@ const getMyProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Check if each property is a favorite for the logged-in user
   const propertiesWithFavorites = myProperties.map((property) => {
     const isFavorite = property.favourites.includes(userId);
     return { ...property, isFavorite };
@@ -1049,6 +1048,17 @@ const requestATour = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "You can't message yourself", null, false));
   }
 
+  const property = await Property.findById(propertyId);
+
+  if (!property) {
+    return next(
+      new apiError(
+        404,
+        "Can't find property at the moment ,please try again later."
+      )
+    );
+  }
+
   const newBuyerQuery = new buyerQuery({
     buyer: isExistedBuyer._id,
     seller: isExistedProperty.author,
@@ -1097,6 +1107,10 @@ const requestATour = asyncHandler(async (req, res, next) => {
       )
     );
   }
+
+  property.leadCount = property.leadCount + 1;
+
+  await property.save();
 
   return res
     .status(200)

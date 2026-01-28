@@ -38,9 +38,14 @@ router.route("/verify-acc").put(verifyAccount);
 router.route("/login").post(loginUserController);
 
 // update user
-router
-  .route("/update-user")
-  .put(authguard, uploadMedia.single("profilePicture"), updateUser);
+router.route("/update-user").put(
+  authguard,
+  uploadMedia.fields([
+    { name: "profilePicture", maxCount: 1 },
+    { name: "identity_document", maxCount: 1 },
+  ]),
+  updateUser
+);
 
 // get me
 router.route("/get-me").get(authguard, getUserData);
