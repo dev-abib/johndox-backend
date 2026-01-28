@@ -27,6 +27,8 @@ const {
   getDynamicPageBySlug,
   upInsertCompanyAddress,
   getUserQueries,
+  upsertSmtpCredentials,
+  getSmtpCredentials,
 } = require("../../Controller/admin.auth.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const {
@@ -131,5 +133,11 @@ router.route("/dynamic-pages/slug/:slug").get(getDynamicPageBySlug);
 
 // get user queries
 router.route("/get-user-queries").get(getUserQueries);
+
+// upsert smtp settings
+router.route("/upsert-smtp-settings").post(adminAuthGuard, upsertSmtpCredentials);
+
+// get smtp settings
+router.route("/get-smtp-settings").get(adminAuthGuard,getSmtpCredentials);
 
 module.exports = router;

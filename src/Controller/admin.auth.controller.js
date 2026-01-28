@@ -1097,42 +1097,27 @@ const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
   let smtp_settings = await smtpSettings.findOne();
 
   if (!smtp_settings) {
-    if (!mail_mailer) {
-      return next(new apiError(400, "Mail mailer is required"));
-    }
-    if (!mail_host) {
-      return next(new apiError(400, "Mail host is required"));
-    }
-    if (typeof mail_port !== "number") {
-      return next(new apiError(400, "Mail port is must have to be a number"));
-    }
-    if (!mail_user_name) {
+
+    if (!mail_host) return next(new apiError(400, "Mail host is required"));
+    if (!mail_user_name)
       return next(new apiError(400, "Mail user name is required"));
-    }
-    if (!mail_password) {
+    if (!mail_password)
       return next(new apiError(400, "Mail password is required"));
-    }
-    if (!mail_encryption) {
-      return next(new apiError(400, "Mail password is required"));
-    }
-    if (!mail_from_name) {
+    if (!mail_encryption)
+      return next(new apiError(400, "Mail encryption is required"));
+    if (!mail_from_name)
       return next(new apiError(400, "Mail from name is required"));
-    }
-    if (!mail_from_address) {
+    if (!mail_from_address)
       return next(new apiError(400, "Mail from address is required"));
-    }
-    if (!emailChecker(mail_from_address)) {
-      return next(new apiError(400, "Invalid email address"));
-    }
-    if (!super_admin_mail) {
+    if (!emailChecker(mail_from_address))
+      return next(new apiError(400, "Invalid mail from email address"));
+        if (!mail_from_address)
+          return next(new apiError(400, "Super admin email is required"));
+    if (super_admin_mail && !emailChecker(super_admin_mail))
       return next(new apiError(400, "Invalid super admin email address"));
-    }
-    if (!emailChecker(super_admin_mail)) {
-      return next(new apiError(400, "Invalid super admin email address"));
-    }
 
     smtp_settings = new smtpSettings({
-      mail_mailer,
+      mail_mailer: mail_mailer || "smtp",
       mail_host,
       mail_port,
       mail_user_name,
@@ -1140,46 +1125,66 @@ const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
       mail_encryption,
       mail_from_name,
       mail_from_address,
-      super_admin_mail,
+      super_admin_mail: super_admin_mail ,
     });
 
     await smtp_settings.save();
 
     return res
-      .status(200)
-      .json(new apiSuccess(201, "Smtp settings created successfully "));
-  } else {
-    if (mail_port && typeof mail_port !== "number") {
-      return next(new apiError(400, "Mail port is must have to be a number"));
-    }
-    if (super_admin_mail && !emailChecker(super_admin_mail)) {
-      return next(new apiError(400, "Invalid super admin email address"));
-    }
-
-    if (mail_from_address && !emailChecker(mail_from_address)) {
-      return next(new apiError(400, "Invalid mail from email address"));
-    }
-
-    smtp_settings.mail_mailer = mail_mailer || smtp_settings.mail_mailer;
-    smtpSettings.mail_host = mail_host || smtpSettings.mail_host;
-    smtpSettings.mail_port = mail_port || smtpSettings.mail_port;
-    smtpSettings.mail_user_name = mail_user_name || smtpSettings.mail_user_name;
-    smtpSettings.mail_password = mail_password || smtpSettings.mail_password;
-    smtpSettings.mail_encryption =
-      mail_encryption || smtpSettings.mail_encryption;
-    smtpSettings.mail_from_name = mail_from_name || smtpSettings.mail_from_name;
-    smtpSettings.mail_from_address =
-      mail_from_address || smtpSettings.mail_from_address;
-    smtpSettings.super_admin_mail =
-      super_admin_mail || smtpSettings.super_admin_mail;
-
-    await siteSettingModel.save();
-
-    return res
-      .status(200)
-      .json(new apiSuccess(200, "Successfully updated smtp settings"));
+      .status(201)
+      .json(
+        new apiSuccess(201, "SMTP settings created successfully", smtp_settings)
+      );
   }
+
+  if (mail_port && typeof mail_port !== "number")
+    return next(new apiError(400, "Mail port must be a number"));
+  if (mail_from_address && !emailChecker(mail_from_address))
+    return next(new apiError(400, "Invalid mail from email address"));
+  if (super_admin_mail && !emailChecker(super_admin_mail))
+    return next(new apiError(400, "Invalid super admin email address"));
+
+
+  smtp_settings.mail_mailer = mail_mailer ?? smtp_settings.mail_mailer;
+  smtp_settings.mail_host = mail_host ?? smtp_settings.mail_host;
+  smtp_settings.mail_port = mail_port ?? smtp_settings.mail_port;
+  smtp_settings.mail_user_name = mail_user_name ?? smtp_settings.mail_user_name;
+  smtp_settings.mail_password = mail_password ?? smtp_settings.mail_password;
+  smtp_settings.mail_encryption =
+    mail_encryption ?? smtp_settings.mail_encryption;
+  smtp_settings.mail_from_name = mail_from_name ?? smtp_settings.mail_from_name;
+  smtp_settings.mail_from_address =
+    mail_from_address ?? smtp_settings.mail_from_address;
+  smtp_settings.super_admin_mail =
+    super_admin_mail ?? smtp_settings.super_admin_mail;
+
+  await smtp_settings.save();
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Successfully updated SMTP settings"));
 });
+
+
+const getSmtpCredentials = asyncHandler(async (req, res, next) => {
+  let smtp_settings = await smtpSettings.findOne();
+  
+  if (!smtp_settings) {
+    return (
+      next(
+        new apiError(
+          404, "Smtp settings not found "
+        )
+      )
+    )
+  }
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(200, "Successfully retrieved smtp settings", smtp_settings)
+    );
+})
 
 module.exports = {
   loginAdminController,
@@ -1207,4 +1212,5 @@ module.exports = {
   getDynamicPageBySlug,
   getUserQueries,
   upsertSmtpCredentials,
+  getSmtpCredentials,
 };

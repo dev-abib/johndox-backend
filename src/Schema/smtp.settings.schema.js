@@ -6,49 +6,40 @@ const smtpSettingsSchema = new Schema(
   {
     mail_mailer: {
       type: String,
-      required: [true, "Mailer name is required"],
-      default: null,
+      default: "smtp", // optional if only using SMTP
     },
     mail_host: {
       type: String,
       required: [true, "Mail host is required"],
-      default: null,
     },
     mail_port: {
-      type: Number,
-      required: [true, "Mail Port is required"],
-      default: null,
+      type: String,
+      required: [true, "Mail port is required"],
     },
     mail_user_name: {
       type: String,
-      required: [true, "Mail user name required"],
-      default: null,
+      required: [true, "Mail user name is required"],
     },
     mail_password: {
       type: String,
-      required: [true, "mail password is required"],
-      default: null,
+      required: [true, "Mail password is required"],
     },
     mail_encryption: {
       type: String,
-      required: [true, "Mail encryption info is required"],
-      default: null,
+      required: [true, "Mail encryption is required"],
     },
     mail_from_name: {
       type: String,
       required: [true, "Mail from name is required"],
-      default: null,
     },
-
     mail_from_address: {
       type: String,
       required: [true, "Mail from address is required"],
-      default: null,
     },
     super_admin_mail: {
       type: String,
-      required: [true, "super admin email address is required"],
       default: null,
+      required: [true, "Super admin email address is required"],
     },
   },
   {
