@@ -685,29 +685,7 @@ const logoutUser = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Logged out successfully", null, true));
 });
 
-// get single user
-const getSingleuser = asyncHandler(async (req, res, next) => {
-  const { userId } = req.params;
 
-  const isExistedUser = await user.findById(userId);
-
-  if (!isExistedUser) {
-    return next(
-      new apiError(404, "this account didn't exist or removed", null, false)
-    );
-  }
-
-  return res
-    .status(200)
-    .json(
-      new apiSuccess(
-        200,
-        "Successfully retrived user information",
-        isExistedUser,
-        false
-      )
-    );
-});
 
 const rateUser = asyncHandler(async (req, res, next) => {
   const { reciverId } = req.params;
@@ -1010,7 +988,6 @@ module.exports = {
   logoutUser,
   verifyAccount,
   resendOtp,
-  getSingleuser,
   rateUser,
   contactSupportForMe,
   googleAuthController,

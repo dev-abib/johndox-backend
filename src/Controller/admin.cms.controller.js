@@ -5,8 +5,7 @@ const { user } = require("../Schema/user.schema");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
 
-
-const dashboardAnalytics = asyncHandler(async (req, res) => {
+const dashboardAnalytics = asyncHandler(async (req, res, next) => {
   const now = new Date();
 
   const startOfToday = new Date(now);
@@ -23,7 +22,6 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
     59
   );
 
-  /* -------------------- BASIC STATS -------------------- */
   const [activeListings, totalBuyers, totalPaidSellers, activePlans] =
     await Promise.all([
       Property.countDocuments(),
@@ -35,7 +33,6 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
       plan.find({ "pricing.status": "active" }).lean(),
     ]);
 
-  /* -------------------- PLAN BREAKDOWN -------------------- */
   const planBreakdown = activePlans.map((p) => ({
     key: p.key,
     name: p.name,
@@ -64,7 +61,6 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
     }
   });
 
-  /* -------------------- REVENUE (THIS MONTH) -------------------- */
   const revenueAgg = await user.aggregate([
     {
       $match: {
@@ -102,7 +98,6 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
 
   const monthlyRevenue = revenueAgg[0]?.totalRevenue || 0;
 
-  /* -------------------- LAST MONTH REVENUE -------------------- */
   const lastMonthRevenueAgg = await user.aggregate([
     {
       $match: {
@@ -151,7 +146,6 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
           ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
         );
 
-  /* -------------------- SUBSCRIPTIONS -------------------- */
   const newSubscriptionsThisMonth = await user.countDocuments({
     role: "seller",
     "subscription.status": "active",
@@ -167,7 +161,6 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
     },
   });
 
-  /* -------------------- INQUIRIES -------------------- */
   const inquiriesToday = await buyerQuery.countDocuments({
     createdAt: { $gte: startOfToday },
   });
@@ -180,7 +173,6 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
     .populate("propertyId", "title")
     .lean();
 
-  /* -------------------- CHART READY DATA -------------------- */
   const subscriptionChart = {
     labels: planBreakdown.map((p) => p.name),
     data: planBreakdown.map((p) => p.sellers),
@@ -191,7 +183,6 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
     data: [lastMonthRevenue, monthlyRevenue],
   };
 
-  /* -------------------- RESPONSE -------------------- */
   return res.status(200).json(
     new apiSuccess(200, "Dashboard analytics fetched successfully", {
       stats: {
@@ -233,7 +224,118 @@ const dashboardAnalytics = asyncHandler(async (req, res) => {
   );
 });
 
+const userDirectory = asyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    sortBy = "createdAt",
+    order = "desc",
+    roleType,
+    sellerType,
+  } = req.query;
+
+  const skip = (page - 1) * limit;
+  const sortOrder = order === "asc" ? 1 : -1;
+
+  let query = {};
+
+  if (roleType === "buyer") {
+    query.role = "buyer";
+  }
+
+  if (roleType === "seller") {
+    query.role = "seller";
+  }
+
+  if (sellerType === "paid") {
+    query.role = "seller";
+    query["subscription.status"] = "active";
+  }
+
+  if (sellerType === "unpaid") {
+    query.role = "seller";
+    query.$or = [
+      { "subscription.status": { $ne: "active" } },
+      { subscription: { $exists: false } },
+    ];
+  }
+
+  if (search) {
+    query.$or = [
+      { firstName: { $regex: search, $options: "i" } },
+      { lastName: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { phoneNumber: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const [users, totalFiltered, stats] = await Promise.all([
+    user
+      .find(query)
+      .select(
+        "firstName lastName email role isVerifiedAccount profilePicture phoneNumber subscription createdAt"
+      )
+      .sort({ [sortBy]: sortOrder })
+      .skip(Number(skip))
+      .limit(Number(limit)),
+
+    user.countDocuments(query),
+
+    {
+      totalUsers: await user.countDocuments(),
+      totalBuyers: await user.countDocuments({ role: "buyer" }),
+      totalSellers: await user.countDocuments({ role: "seller" }),
+      totalPaidSellers: await user.countDocuments({
+        role: "seller",
+        "subscription.status": "active",
+      }),
+    },
+  ]);
+
+  res.status(200).json(
+    new apiSuccess(200, "Successfully retrieved user directory", {
+      stats,
+      pagination: {
+        page: Number(page),
+        totalPages: Math.ceil(totalFiltered / limit),
+        totalResults: totalFiltered,
+      },
+      data: users,
+    })
+  );
+});
+
+// get single user
+const getSingleUser = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  const isExistedUser = await user
+    .findById(userId)
+    .select(
+      "-password -otp -otpExpiresAt -refreshToken -resetToken -socketId -sessionDuration"
+    );
+
+  if (!isExistedUser) {
+    return next(
+      new apiError(404, "this account didn't exist or removed", null, false)
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "Successfully retrieved user information",
+        isExistedUser,
+        false
+      )
+    );
+});
 
 module.exports = {
   dashboardAnalytics,
+  userDirectory,
+  getSingleUser,
 };

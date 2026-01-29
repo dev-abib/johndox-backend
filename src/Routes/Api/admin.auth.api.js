@@ -9,7 +9,6 @@ const {
   updateAdminPassword,
   updateSocialSiteData,
   getSocialSiteData,
-  upInseertCompanyAddress,
   getCompanyAddressData,
   updateSiteSettings,
   getSiteSettings,
@@ -31,11 +30,8 @@ const {
   getSmtpCredentials,
 } = require("../../Controller/admin.auth.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
-const {
-  getSingleuser,
-  getUserAllPost,
-} = require("../../Controller/user.controller");
 const { adminAuthGuard } = require("../../middleware/adminAuthGuard");
+
 
 // extracting router from express
 const { Router } = express;
@@ -60,7 +56,6 @@ router
 router.route("/update/admin-pass").put(adminAuthGuard, updateAdminPassword);
 
 // update smtp settings
-
 router
   .route("/update/social-site-data")
   .put(adminAuthGuard, updateSocialSiteData);
@@ -90,8 +85,7 @@ router.route("/update/site-settings").put(
 // get site settings data
 router.route("/get/site-settings").get(getSiteSettings);
 
-// get single user
-router.route("/get-user/:userId").get(adminAuthGuard, getSingleuser);
+
 
 // remove user
 router.route("/remove-user/:userId").delete(adminAuthGuard, adminDeleteUser);
@@ -135,9 +129,13 @@ router.route("/dynamic-pages/slug/:slug").get(getDynamicPageBySlug);
 router.route("/get-user-queries").get(getUserQueries);
 
 // upsert smtp settings
-router.route("/upsert-smtp-settings").post(adminAuthGuard, upsertSmtpCredentials);
+router
+  .route("/upsert-smtp-settings")
+  .post(adminAuthGuard, upsertSmtpCredentials);
 
 // get smtp settings
-router.route("/get-smtp-settings").get(adminAuthGuard,getSmtpCredentials);
+router.route("/get-smtp-settings").get(adminAuthGuard, getSmtpCredentials);
+
+
 
 module.exports = router;
