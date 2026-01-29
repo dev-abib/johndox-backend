@@ -40,7 +40,7 @@ const planSchema = new Schema(
       status: { type: String, enum: ["active", "inactive"], default: "active" },
     },
 
-    archivedAt: { type: Date, default: null }, // optional helpful field
+    archivedAt: { type: Date, default: null }, 
   },
   { timestamps: true }
 );
