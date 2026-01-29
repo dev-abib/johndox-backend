@@ -1,6 +1,12 @@
+const { deleteCloudinaryAsset } = require("../Helpers/uploadCloudinary");
 const { buyerQuery } = require("../Schema/buyer.query.schema");
+const { Conversation } = require("../Schema/conversation.schema");
+const { Message } = require("../Schema/message.schema");
+const { Notification } = require("../Schema/notification.schema");
+const { notificationPreference } = require("../Schema/notifications.schema");
 const { Property } = require("../Schema/property.schema");
 const { plan } = require("../Schema/subscription.schema");
+const { UserRating } = require("../Schema/user.rating.schema");
 const { user } = require("../Schema/user.schema");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
@@ -334,8 +340,120 @@ const getSingleUser = asyncHandler(async (req, res, next) => {
     );
 });
 
+const verifyUserAccount = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  const User = await user.findById(userId);
+
+  if (!User) {
+    return next(
+      new apiError(404, "User not found , account deleted or removed by admin")
+    );
+  }
+
+  if (User.isVerifiedAccount) {
+    return next(new apiError(400, "Account already verified"));
+  }
+
+  User.isVerifiedAccount = true;
+
+  await User.save();
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Account verified successfully"));
+});
+
+const deleteUserAccount = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+  const { isRestricted = false } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return next(new apiError(400, "Invalid user id"));
+  }
+
+  const existingUser = await user.findById(userId).lean();
+  if (!existingUser) {
+    return next(new apiError(404, "User not found"));
+  }
+
+  if (isRestricted) {
+    await RestrictedUser.create({
+      name: `${existingUser.firstName} ${existingUser.lastName}`,
+      email: existingUser.email,
+      phoneNumber: existingUser.phoneNumber || null,
+    });
+  }
+
+  const cloudinaryAssets = [];
+
+  if (existingUser.profilePicture) {
+    cloudinaryAssets.push(existingUser.profilePicture);
+  }
+
+  if (existingUser.identity_document) {
+    cloudinaryAssets.push(existingUser.identity_document);
+  }
+
+  const properties = await Property.find(
+    { author: userId },
+    { media: 1 }
+  ).lean();
+
+  properties.forEach((property) => {
+    property.media?.forEach((media) => {
+      if (media?.url) cloudinaryAssets.push(media.url);
+    });
+  });
+
+
+  await Promise.allSettled(
+    [...new Set(cloudinaryAssets)].map((url) => deleteCloudinaryAsset(url))
+  );
+
+  await Promise.all([
+    Property.deleteMany({ author: userId }),
+
+    Message.deleteMany({
+      $or: [{ senderId: userId }, { receiverId: userId }],
+    }),
+
+    Conversation.deleteMany({ participants: userId }),
+
+    Notification.deleteMany({
+      $or: [{ senderId: userId }, { reciverId: userId }],
+    }),
+
+    notificationPreference.deleteOne({ author: userId }),
+
+    buyerQuery.deleteMany({
+      $or: [{ buyer: userId }, { seller: userId }],
+    }),
+
+    UserRating.deleteMany({
+      $or: [{ rater: userId }, { receiver: userId }],
+    }),
+
+    plan.updateMany({ userId }, { $set: { userId: null } }),
+  ]);
+
+  await user.findByIdAndDelete(userId);
+
+  res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "User account and all related data deleted successfully"
+      )
+    );
+});
+
+
 module.exports = {
   dashboardAnalytics,
   userDirectory,
   getSingleUser,
+  deleteUserAccount,
+  verifyUserAccount,
 };

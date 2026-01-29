@@ -31,6 +31,7 @@ const {
 } = require("../../Controller/admin.auth.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const { adminAuthGuard } = require("../../middleware/adminAuthGuard");
+const { verifyUserAccount, deleteUserAccount } = require("../../Controller/admin.cms.controller");
 
 
 // extracting router from express
@@ -86,7 +87,6 @@ router.route("/update/site-settings").put(
 router.route("/get/site-settings").get(getSiteSettings);
 
 
-
 // remove user
 router.route("/remove-user/:userId").delete(adminAuthGuard, adminDeleteUser);
 
@@ -136,6 +136,12 @@ router
 // get smtp settings
 router.route("/get-smtp-settings").get(adminAuthGuard, getSmtpCredentials);
 
+// verify user account
+router.route("/verify-user/:userId").post(adminAuthGuard, verifyUserAccount);
 
+// delete user account
+router
+  .route("/delete-user-account/:userId")
+  .delete(adminAuthGuard, deleteUserAccount);
 
 module.exports = router;

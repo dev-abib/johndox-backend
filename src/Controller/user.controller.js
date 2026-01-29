@@ -631,36 +631,78 @@ const updateUser = asyncHandler(async (req, res, next) => {
 
 const deleteUserAccount = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
-  if (!decodedData) return next(new apiError(401, "Unauthorized", null, false));
-
   const userId = decodedData?.userData?.userId;
-  const isExistedUser = await user.findById(userId);
-  if (!isExistedUser)
-    return next(new apiError(404, "User not found", null, false));
 
-  try {
-    if (isExistedUser.profilePicture) {
-      await deleteCloudinaryAsset(isExistedUser.profilePicture);
-    }
-
-    await user.findByIdAndDelete(userId);
-
-    return res
-      .status(200)
-      .json(
-        new apiSuccess(
-          200,
-          "User account and all related data deleted successfully",
-          null,
-          true
-        )
-      );
-  } catch (error) {
-    console.error("Error deleting user data:", error);
-    return next(
-      new apiError(500, "Failed to delete user and related data", null, false)
-    );
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return next(new apiError(400, "Invalid user id"));
   }
+
+  const existingUser = await user.findById(userId).lean();
+  if (!existingUser) {
+    return next(new apiError(404, "User not found"));
+  }
+
+  const cloudinaryAssets = [];
+
+  if (existingUser.profilePicture) {
+    cloudinaryAssets.push(existingUser.profilePicture);
+  }
+
+  if (existingUser.identity_document) {
+    cloudinaryAssets.push(existingUser.identity_document);
+  }
+
+  const properties = await Property.find(
+    { author: userId },
+    { media: 1 }
+  ).lean();
+
+  properties.forEach((property) => {
+    property.media?.forEach((media) => {
+      if (media?.url) cloudinaryAssets.push(media.url);
+    });
+  });
+
+  await Promise.allSettled(
+    [...new Set(cloudinaryAssets)].map((url) => deleteCloudinaryAsset(url))
+  );
+
+  await Promise.all([
+    Property.deleteMany({ author: userId }),
+
+    Message.deleteMany({
+      $or: [{ senderId: userId }, { receiverId: userId }],
+    }),
+
+    Conversation.deleteMany({ participants: userId }),
+
+    Notification.deleteMany({
+      $or: [{ senderId: userId }, { reciverId: userId }],
+    }),
+
+    notificationPreference.deleteOne({ author: userId }),
+
+    buyerQuery.deleteMany({
+      $or: [{ buyer: userId }, { seller: userId }],
+    }),
+
+    UserRating.deleteMany({
+      $or: [{ rater: userId }, { receiver: userId }],
+    }),
+
+    plan.updateMany({ userId }, { $set: { userId: null } }),
+  ]);
+
+  await user.findByIdAndDelete(userId);
+
+  res
+    .status(200)
+    .json(
+      new apiSuccess(
+        200,
+        "Account and all related data deleted successfully"
+      )
+    );
 });
 
 // log out user
@@ -684,8 +726,6 @@ const logoutUser = asyncHandler(async (req, res, next) => {
     .status(200)
     .json(new apiSuccess(200, "Logged out successfully", null, true));
 });
-
-
 
 const rateUser = asyncHandler(async (req, res, next) => {
   const { reciverId } = req.params;
@@ -951,7 +991,6 @@ const upsertNotificationsPreference = asyncHandler(async (req, res, next) => {
     );
 });
 
-
 const getNotificationPreference = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
   const userId = decodedData?.userData?.userId;
@@ -993,4 +1032,5 @@ module.exports = {
   googleAuthController,
   upsertNotificationsPreference,
   getNotificationPreference,
+  deleteUserAccount,
 };

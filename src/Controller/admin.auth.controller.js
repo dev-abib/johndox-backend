@@ -1097,7 +1097,6 @@ const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
   let smtp_settings = await smtpSettings.findOne();
 
   if (!smtp_settings) {
-
     if (!mail_host) return next(new apiError(400, "Mail host is required"));
     if (!mail_user_name)
       return next(new apiError(400, "Mail user name is required"));
@@ -1111,8 +1110,8 @@ const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
       return next(new apiError(400, "Mail from address is required"));
     if (!emailChecker(mail_from_address))
       return next(new apiError(400, "Invalid mail from email address"));
-        if (!mail_from_address)
-          return next(new apiError(400, "Super admin email is required"));
+    if (!mail_from_address)
+      return next(new apiError(400, "Super admin email is required"));
     if (super_admin_mail && !emailChecker(super_admin_mail))
       return next(new apiError(400, "Invalid super admin email address"));
 
@@ -1125,7 +1124,7 @@ const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
       mail_encryption,
       mail_from_name,
       mail_from_address,
-      super_admin_mail: super_admin_mail ,
+      super_admin_mail: super_admin_mail,
     });
 
     await smtp_settings.save();
@@ -1143,7 +1142,6 @@ const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Invalid mail from email address"));
   if (super_admin_mail && !emailChecker(super_admin_mail))
     return next(new apiError(400, "Invalid super admin email address"));
-
 
   smtp_settings.mail_mailer = mail_mailer ?? smtp_settings.mail_mailer;
   smtp_settings.mail_host = mail_host ?? smtp_settings.mail_host;
@@ -1165,18 +1163,11 @@ const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Successfully updated SMTP settings"));
 });
 
-
 const getSmtpCredentials = asyncHandler(async (req, res, next) => {
   let smtp_settings = await smtpSettings.findOne();
-  
+
   if (!smtp_settings) {
-    return (
-      next(
-        new apiError(
-          404, "Smtp settings not found "
-        )
-      )
-    )
+    return next(new apiError(404, "Smtp settings not found "));
   }
 
   return res
@@ -1184,7 +1175,10 @@ const getSmtpCredentials = asyncHandler(async (req, res, next) => {
     .json(
       new apiSuccess(200, "Successfully retrieved smtp settings", smtp_settings)
     );
-})
+});
+
+
+
 
 module.exports = {
   loginAdminController,
