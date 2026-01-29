@@ -5,11 +5,14 @@ const { Message } = require("../Schema/message.schema");
 const { Notification } = require("../Schema/notification.schema");
 const { notificationPreference } = require("../Schema/notifications.schema");
 const { Property } = require("../Schema/property.schema");
+const { restrictedUser } = require("../Schema/restricted.users.schema");
 const { plan } = require("../Schema/subscription.schema");
 const { UserRating } = require("../Schema/user.rating.schema");
 const { user } = require("../Schema/user.schema");
+const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const { asyncHandler } = require("../Utils/asyncHandler");
+const mongoose = require("mongoose");
 
 const dashboardAnalytics = asyncHandler(async (req, res, next) => {
   const now = new Date();
@@ -351,8 +354,15 @@ const verifyUserAccount = asyncHandler(async (req, res, next) => {
     );
   }
 
-  if (User.isVerifiedAccount) {
-    return next(new apiError(400, "Account already verified"));
+  if (User?.isVerifiedAccount) {
+    User.isVerifiedAccount = false;
+    await User.save();
+
+    return res
+      .status(200)
+      .json(
+        new apiSuccess(200, "Account verified status removed successfully")
+      );
   }
 
   User.isVerifiedAccount = true;
@@ -366,7 +376,6 @@ const verifyUserAccount = asyncHandler(async (req, res, next) => {
 
 const deleteUserAccount = asyncHandler(async (req, res, next) => {
   const { userId } = req.params;
-  const { isRestricted = false } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return next(new apiError(400, "Invalid user id"));
@@ -377,13 +386,11 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
     return next(new apiError(404, "User not found"));
   }
 
-  if (isRestricted) {
-    await RestrictedUser.create({
-      name: `${existingUser.firstName} ${existingUser.lastName}`,
-      email: existingUser.email,
-      phoneNumber: existingUser.phoneNumber || null,
-    });
-  }
+  await restrictedUser.create({
+    name: `${existingUser.firstName} ${existingUser.lastName}`,
+    email: existingUser.email,
+    phoneNumber: existingUser.phoneNumber || null,
+  });
 
   const cloudinaryAssets = [];
 
@@ -405,7 +412,6 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
       if (media?.url) cloudinaryAssets.push(media.url);
     });
   });
-
 
   await Promise.allSettled(
     [...new Set(cloudinaryAssets)].map((url) => deleteCloudinaryAsset(url))
@@ -448,7 +454,6 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
       )
     );
 });
-
 
 module.exports = {
   dashboardAnalytics,
