@@ -26,6 +26,7 @@ const { asyncHandler } = require("../Utils/asyncHandler");
 const { emailChecker, passwordChecker } = require("../Utils/check");
 const { supportMessage } = require("../Schema/support.message.schema");
 const { notificationPreference } = require("../Schema/notifications.schema");
+const { restrictedUser } = require("../Schema/restricted.users.schema");
 
 // register user controller
 const registerUserController = asyncHandler(async (req, res, next) => {
@@ -93,6 +94,18 @@ const registerUserController = asyncHandler(async (req, res, next) => {
 
   if (password !== confirmPassword)
     return next(new apiError(400, "Passwords do not match"));
+
+  const isRestricted = await restrictedUser.findOne({ email: email });
+
+  if (isRestricted)
+    return next(
+      new apiError(
+        401,
+        "Your account has been permanently removed and restricted. you can't login or create account on this site.",
+        null,
+        false
+      )
+    );
 
   const isExistingUser = await user.findOne({ email });
   if (isExistingUser) return next(new apiError(400, "Account already exists"));
@@ -216,12 +229,22 @@ const loginUserController = asyncHandler(async (req, res, next) => {
   if (!passwordChecker(password))
     return next(new apiError(400, "Invalid password format", null, false));
 
+  const isRestricted = await restrictedUser.findOne({ email: email });
+
+  if (isRestricted)
+    return next(
+      new apiError(
+        401,
+        "Your account has been permanently removed and restricted. you can't login or create account on this site.",
+        null,
+        false
+      )
+    );
+
   const isExistingUser = await user.findOne({ email });
 
-  if (isExistingUser.)
-
-    if (!isExistingUser)
-      return next(new apiError(400, "Invalid email or password", null, false));
+  if (!isExistingUser)
+    return next(new apiError(400, "Invalid email or password", null, false));
 
   const isVerifiedPass = await verifyPassword(
     password,
@@ -238,6 +261,14 @@ const loginUserController = asyncHandler(async (req, res, next) => {
   ) {
     return next(
       new apiError(400, "Before login , please verify you account", null, false)
+    );
+  }
+  if (isExistingUser.isBanned === true) {
+    return next(
+      new apiError(
+        401,
+        "Your account is temporarily banned , to login please contact with our support team."
+      )
     );
   }
 
@@ -715,7 +746,6 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
       )
     );
 });
-
 
 // log out user
 const logoutUser = asyncHandler(async (req, res, next) => {
