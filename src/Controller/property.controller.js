@@ -2111,6 +2111,70 @@ const convertCurrency = asyncHandler(async (req, res, next) => {
     .json(new apiSuccess(200, "Currency converted successfully", data));
 });
 
+const getPropertyByUserId = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return next(new apiError(401, "Unauthorized request", null, false));
+  }
+
+  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt(req.query.limit || "10", 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
+
+  const filter = { author: userId };
+
+  const [myProperties, total] = await Promise.all([
+    Property.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Property.countDocuments(filter),
+  ]);
+
+  if (total < 1) {
+    return next(
+      new apiError(
+        404,
+        "This user don't have any listing currently",
+        null,
+        false
+      )
+    );
+  }
+
+  const propertiesWithFavorites = myProperties.map((property) => {
+    const isFavorite = property.favourites.includes(userId);
+    return { ...property, isFavorite };
+  });
+
+  const totalPages = Math.ceil(total / limit);
+
+  return res.status(200).send(
+    new apiSuccess(
+      200,
+      "Property listing retrieved successfully",
+      {
+        items: propertiesWithFavorites,
+        pagination: {
+          totalItems: total,
+          totalPages,
+          currentPage: page,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      },
+      true,
+      null
+    )
+  );
+});
+
 module.exports = {
   addProperty,
   getMyProperty,
@@ -2139,4 +2203,5 @@ module.exports = {
   getWhyChooseUs,
   getSingleProperty,
   convertCurrency,
+  getPropertyByUserId,
 };

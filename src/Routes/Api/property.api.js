@@ -32,6 +32,7 @@ const {
   deleteWhyChooseItem,
   getSingleProperty,
   convertCurrency,
+  getPropertyByUserId,
 } = require("../../Controller/property.controller");
 const { validateMediaSizes } = require("../../middleware/validate.media.sizes");
 
@@ -66,7 +67,7 @@ router.route("/delete-property/:propertyId").delete(authguard, deleteProperty);
 // get my listing
 router.route("/my-listings").get(authguard, getMyProperty);
 
-// get all listing 
+// get all listing
 router.route("/all-listings").get(getAllProperties);
 
 // request a property tour
@@ -100,7 +101,7 @@ router.route("/add-category").post(
     { name: "bgImg", maxCount: 1 },
     { name: "iconImg", maxCount: 1 },
   ]),
-  upsertCategory 
+  upsertCategory
 );
 
 // Update category route
@@ -109,13 +110,12 @@ router.route("/update-category/:categoryId").post(
     { name: "bgImg", maxCount: 1 },
     { name: "iconImg", maxCount: 1 },
   ]),
-  upsertCategory 
+  upsertCategory
 );
 
 router.route("/get-category-section").get(getCategorySection);
 
 router.route("/delete-category/:categoryId").delete(deleteCategory);
-
 
 router.route("/upsert-why-choose-us").post(createUpdateWhyChooseSection);
 
@@ -148,6 +148,8 @@ router.route("/get-single-property/:propertyId").get(getSingleProperty);
 
 router.route("/convert-hnl-to-usd").post(convertCurrency);
 
-router.route("/get-featured-properties").get(getFeaturedProperties)
+router.route("/get-featured-properties").get(getFeaturedProperties);
+
+router.route("/get-property-by-user/:userId").get(getPropertyByUserId);
 
 module.exports = router;
