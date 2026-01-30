@@ -4,6 +4,7 @@ const {
   AccountVerificationTemplate,
   RequestTourEmailTemplate,
   ContactFormEmailTemplate,
+  UserMailTemplate,
 } = require("./email.template");
 
 const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
@@ -49,6 +50,10 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
         message: data?.message,
         submittedAt: data?.createdAt,
       });
+    }
+
+    if (type === "admin-mail") {
+      html = UserMailTemplate()
     }
 
     const mailOptions = {

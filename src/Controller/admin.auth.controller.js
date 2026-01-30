@@ -153,7 +153,7 @@ const verifyAdmin = asyncHandler(async (req, res, next) => {
   const tokenFromAuth = token.replace(bearerRegex, "").trim().replace(/^@/, "");
   const decodedData = await verifyAdminSessionToken(tokenFromAuth);
 
-  const id = decodedData.decoded.adminData._id;
+  const id = decodedData?.decoded?.adminData?._id;
 
   if (!decodedData)
     return next(new apiError(401, "Unauthorized request", null, false));
@@ -520,7 +520,7 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
   for (const social of socialLinks) {
     if (Object.prototype.hasOwnProperty.call(req.body, social)) {
       const value = req.body[social];
-      settings.socialLinks[social] = value || null; // Set to null if empty string
+      settings.socialLinks[social] = value || null;
     }
   }
 
@@ -1176,8 +1176,6 @@ const getSmtpCredentials = asyncHandler(async (req, res, next) => {
       new apiSuccess(200, "Successfully retrieved smtp settings", smtp_settings)
     );
 });
-
-
 
 
 module.exports = {

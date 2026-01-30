@@ -1,3 +1,4 @@
+const { mailSender } = require("../Helpers/emailSender");
 const { deleteCloudinaryAsset } = require("../Helpers/uploadCloudinary");
 const { buyerQuery } = require("../Schema/buyer.query.schema");
 const { Conversation } = require("../Schema/conversation.schema");
@@ -455,10 +456,42 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
     );
 });
 
+const sendMailToUser = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+  const { subject, message } = req.body;
+
+  if (!subject) {
+    return next(new apiError(400, "Email subject is required"));
+  }
+
+  if (!message) {
+    return next(new apiError(400, "Message field is required"));
+  }
+
+  const User = await user.findById(userId);
+
+  if (!User) {
+    return next(new apiError(404, "user not found"));
+  }
+
+  const { email, firstName, lastName } = User;
+
+  const isMailSent = await mailSender({
+    type: "admin-mail",
+    emailAdress: email,
+    data: { email, subject, firstName, lastName, message },
+  });
+
+  console.log(isMailSent);
+  
+
+});
+
 module.exports = {
   dashboardAnalytics,
   userDirectory,
   getSingleUser,
   deleteUserAccount,
   verifyUserAccount,
+  sendMailToUser,
 };

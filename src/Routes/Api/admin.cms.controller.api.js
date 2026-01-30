@@ -1,5 +1,5 @@
 const express = require("express");
-const { dashboardAnalytics, getSingleUser, userDirectory } = require("../../Controller/admin.cms.controller");
+const { dashboardAnalytics, getSingleUser, userDirectory, sendMailToUser } = require("../../Controller/admin.cms.controller");
 
 const router = express.Router();
 
@@ -9,6 +9,9 @@ router.route("/get-dashboard-analytics").get(dashboardAnalytics);
 router.route("/get-user-directory").get(userDirectory);
 
 // get single user
-router.route("/get-user/:userId").get( getSingleUser);
+router.route("/get-user/:userId").get(getSingleUser);
+
+// send admin mail 
+router.route("/send-mail-to-user/:userId").post(sendMailToUser);
 
 module.exports = router;

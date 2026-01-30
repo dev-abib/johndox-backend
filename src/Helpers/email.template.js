@@ -565,9 +565,129 @@ const ContactFormEmailTemplate = ({
   `;
 };
 
+const UserMailTemplate = ({
+  firstName,
+  lastName,
+  subject,
+  message,
+  sentAt,
+}) => {
+  const formattedDate = sentAt
+    ? new Date(sentAt).toLocaleString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: true,
+      })
+    : "Just now";
+
+ 
+  const safe = (v) =>
+    String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const safeName =
+    safe(`${firstName || ""} ${lastName || ""}`.trim()) || "there";
+  const safeSubject = safe(subject || "Message from our team");
+  const safeMessage = safe(message || "").replace(/\n/g, "<br/>");
+  const safeDate = safe(formattedDate);
+
+  return `
+  <!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>${safeSubject}</title>
+      <style>
+        @media (max-width: 600px) {
+          .container { width: 100% !important; }
+          .px { padding-left: 16px !important; padding-right: 16px !important; }
+        }
+      </style>
+    </head>
+
+    <body style="margin:0; padding:0; background:#f3f5f9;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0;">
+        <tr>
+          <td align="center">
+
+            <table class="container" width="600" cellpadding="0" cellspacing="0"
+              style="background:#ffffff; border-radius:16px; box-shadow:0 12px 32px rgba(2,6,23,0.08); overflow:hidden;">
+
+              <!-- Header -->
+              <tr>
+                <td class="px"
+                  style="padding:26px 24px; background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#ffffff; font-family:Arial, sans-serif;">
+                  <div style="font-size:18px; font-weight:800; margin-bottom:6px;">
+                    ${safeSubject}
+                  </div>
+                  <div style="font-size:13px; opacity:0.95;">
+                    A message from the Terralink team
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Body -->
+              <tr>
+                <td class="px" style="padding:26px 24px; font-family:Arial, sans-serif; color:#0f172a;">
+
+                  <p style="font-size:14px; line-height:1.7; margin:0 0 14px;">
+                    Hello <strong>${safeName}</strong>,
+                  </p>
+
+                  <div
+                    style="background:#f8fafc; border:1px solid #e7ecf5; border-radius:12px; padding:16px; font-size:14px; line-height:1.8; color:#334155;">
+                    ${safeMessage}
+                  </div>
+
+                  <p style="font-size:13px; color:#64748b; margin-top:18px;">
+                    Sent on ${safeDate}
+                  </p>
+
+                  <p style="font-size:14px; margin-top:22px;">
+                    If you have any questions or need further help, feel free to reply to this email.
+                  </p>
+
+                  <p style="font-size:14px; margin-top:20px;">
+                    Warm regards,<br/>
+                    <strong>Terralink Support Team</strong>
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td
+                  style="border-top:1px solid #eef2f7; padding:16px 24px; font-family:Arial, sans-serif; font-size:12px; color:#94a3b8;">
+                  This email was sent by Terralink. Please do not share sensitive information via email.
+                </td>
+              </tr>
+
+            </table>
+
+          </td>
+        </tr>
+      </table>
+    </body>
+  </html>
+  `;
+};
+
+
+
+
 module.exports = {
   PasswordResetTemplate,
   AccountVerificationTemplate,
   RequestTourEmailTemplate,
   ContactFormEmailTemplate,
+  UserMailTemplate,
 };
