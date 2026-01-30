@@ -1026,6 +1026,7 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
 
   const filter = {};
 
+  /* 🔍 SEARCH */
   if (req.query.search) {
     const search = String(req.query.search).trim();
     if (search) {
@@ -1039,23 +1040,23 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
     }
   }
 
-  const sortKey = String(req.query.sort || "newest")
-    .trim()
-    .toLowerCase();
+  /* ⏱ SORTING */
   const sortMap = {
     newest: { createdAt: -1 },
+    oldest: { createdAt: 1 },
   };
-  const sort = sortMap[sortKey] || sortMap.newest;
+
+  const sort = sortMap[String(req.query.sort).toLowerCase()] || sortMap.newest;
 
   const totalItems = await ContactQuery.countDocuments(filter);
   const totalPages = Math.ceil(totalItems / limit);
 
   const queries = await ContactQuery.find(filter)
+    .sort(sort)
     .skip(skip)
-    .limit(limit)
-    .sort(sort);
+    .limit(limit);
 
-  if (queries.length === 0) {
+  if (!queries.length) {
     return next(new apiError(404, "Currently no query available"));
   }
 
@@ -1073,13 +1074,14 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
           hasNextPage: page < totalPages,
           hasPrevPage: page > 1,
         },
-        appliedFilters: { ...req.query },
+        appliedFilters: req.query,
       },
-      true,
-      null
+      true
     )
   );
 });
+
+
 
 const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
   const {
