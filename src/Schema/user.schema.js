@@ -34,7 +34,10 @@ const userSchema = new Schema(
     totalViews: { type: Number, default: 0 },
     totalLeads: { type: Number, default: 0 },
     unreadMessages: { type: Number, default: 0 },
-
+    isBanned: {
+      type: Boolean,
+      default: false,
+    },
     subscription: {
       planKey: { type: String, trim: true, lowercase: true, default: null },
 

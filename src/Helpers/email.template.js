@@ -584,7 +584,6 @@ const UserMailTemplate = ({
       })
     : "Just now";
 
- 
   const safe = (v) =>
     String(v ?? "")
       .replace(/&/g, "&amp;")
@@ -681,6 +680,348 @@ const UserMailTemplate = ({
   `;
 };
 
+const AccountBannedTemplate = (
+  name,
+  email,
+  reason = "a violation of our terms"
+) => {
+  return `
+  <html lang="en">
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #f9f9f9;
+          margin: 0;
+          padding: 20px;
+        }
+        .container {
+          max-width: 600px;
+          background-color: #ffffff;
+          padding: 30px;
+          border-radius: 8px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+          color: #d9534f;
+          font-size: 24px;
+        }
+        p {
+          font-size: 16px;
+          color: #555555;
+        }
+        .alert {
+          background-color: #f8d7da;
+          color: #721c24;
+          padding: 15px;
+          border-radius: 5px;
+          margin: 20px 0;
+          font-weight: bold;
+          text-align: center;
+        }
+        .footer {
+          margin-top: 30px;
+          font-size: 12px;
+          color: #777777;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Hello ${name},</h2>
+
+        <p>We regret to inform you that your account has been temporarily restricted.</p>
+
+        <div class="alert">
+          Your account has been banned due to ${reason}.
+        </div>
+
+        <p>If you believe this was a mistake or need further clarification, please contact our support team.</p>
+
+        <p class="footer">
+          This notification was sent to <strong>${email}</strong>.
+        </p>
+      </div>
+    </body>
+  </html>
+  `;
+};
+
+const AccountUnbannedTemplate = (name, email) => {
+  return `
+  <html lang="en">
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #f9f9f9;
+          margin: 0;
+          padding: 20px;
+        }
+        .container {
+          max-width: 600px;
+          background-color: #ffffff;
+          padding: 30px;
+          border-radius: 8px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+          color: #28a745;
+          font-size: 24px;
+        }
+        p {
+          font-size: 16px;
+          color: #555555;
+        }
+        .success {
+          background-color: #d4edda;
+          color: #155724;
+          padding: 15px;
+          border-radius: 5px;
+          margin: 20px 0;
+          font-weight: bold;
+          text-align: center;
+        }
+        .footer {
+          margin-top: 30px;
+          font-size: 12px;
+          color: #777777;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Good news ${name},</h2>
+
+        <div class="success">
+          Your account has been successfully reactivated.
+        </div>
+
+        <p>You now have full access to your account again. Please make sure to follow our community guidelines going forward.</p>
+
+        <p class="footer">
+          This notification was sent to <strong>${email}</strong>.
+        </p>
+      </div>
+    </body>
+  </html>
+  `;
+};
+
+const AccountDeletedTemplate = (name, email) => {
+  return `
+  <html lang="en">
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #f9f9f9;
+          margin: 0;
+          padding: 20px;
+        }
+        .container {
+          max-width: 600px;
+          background-color: #ffffff;
+          padding: 30px;
+          border-radius: 8px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+          color: #dc3545;
+          font-size: 24px;
+        }
+        p {
+          font-size: 16px;
+          color: #555555;
+        }
+        .notice {
+          background-color: #f8d7da;
+          color: #721c24;
+          padding: 15px;
+          border-radius: 5px;
+          margin: 20px 0;
+          font-weight: bold;
+          text-align: center;
+        }
+        .footer {
+          margin-top: 30px;
+          font-size: 12px;
+          color: #777777;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Hello ${name},</h2>
+
+        <div class="notice">
+          Your account has been permanently deleted and you're permanently restricted from this site. For violating our policies multiple time.
+        </div>
+
+        <p>
+          This action means that your account and all associated data have been removed from our system and can no longer be recovered.
+        </p>
+
+        <p>
+          If you believe this action was taken in error or you need further assistance, please contact our support team as soon as possible.
+        </p>
+
+        <p class="footer">
+          This notification was sent to <strong>${email}</strong>.
+        </p>
+      </div>
+    </body>
+  </html>
+  `;
+};
+
+const AccountSelfDeletionTemplate = (name, email) => {
+  return `
+  <html lang="en">
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #f9f9f9;
+          margin: 0;
+          padding: 20px;
+        }
+        .container {
+          max-width: 600px;
+          background-color: #ffffff;
+          padding: 30px;
+          border-radius: 8px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+          color: #dc3545;
+          font-size: 24px;
+        }
+        p {
+          font-size: 16px;
+          color: #555555;
+          line-height: 1.5;
+        }
+        .notice {
+          background-color: #f8d7da;
+          color: #721c24;
+          padding: 15px;
+          border-radius: 5px;
+          margin: 20px 0;
+          font-weight: bold;
+          text-align: center;
+        }
+        .footer {
+          margin-top: 30px;
+          font-size: 12px;
+          color: #777777;
+          text-align: center;
+        }
+        a {
+          color: #dc3545;
+          text-decoration: none;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Hello ${name},</h2>
+
+        <div class="notice">
+          Your account has been permanently deleted as per your request.
+        </div>
+
+        <p>
+          All your account data, including profile information, messages, properties, and other associated data, has been removed from our system and cannot be recovered.
+        </p>
+
+        <p>
+          If you did not request this deletion or believe this was a mistake, please contact our support team</a> immediately.
+        </p>
+
+        <p class="footer">
+          This notification was sent to <strong>${email}</strong>. Thank you for using our service.
+        </p>
+      </div>
+    </body>
+  </html>
+  `;
+};
+
+const AccountVerificationStatusTemplate = (name, email, isVerified) => {
+  const statusText = isVerified ? "verified" : "unverified";
+  const statusColor = isVerified ? "#28a745" : "#dc3545"; 
+  const statusMessage = isVerified
+    ? "Congratulations! Your account has been successfully verified."
+    : "Your account verification has been removed by the admin.";
+
+  return `
+  <html lang="en">
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #f9f9f9;
+          margin: 0;
+          padding: 20px;
+        }
+        .container {
+          max-width: 600px;
+          background-color: #ffffff;
+          padding: 30px;
+          border-radius: 8px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+          color: ${statusColor};
+          font-size: 24px;
+        }
+        p {
+          font-size: 16px;
+          color: #555555;
+          line-height: 1.5;
+        }
+        .status-box {
+          font-size: 18px;
+          font-weight: bold;
+          color: ${statusColor};
+          background-color: ${isVerified ? "#d4edda" : "#f8d7da"};
+          padding: 15px;
+          border-radius: 5px;
+          text-align: center;
+          margin: 20px 0;
+        }
+        .footer {
+          margin-top: 30px;
+          font-size: 12px;
+          color: #777777;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Hello ${name},</h2>
+
+        <div class="status-box">
+          ${statusMessage}
+        </div>
+
+        <p>
+          Your account is now marked as <strong>${statusText}</strong>. Please note that some features may depend on your verification status.
+        </p>
+
+        <p class="footer">
+          This notification was sent to <strong>${email}</strong>.
+        </p>
+      </div>
+    </body>
+  </html>
+  `;
+};
 
 
 
@@ -690,4 +1031,9 @@ module.exports = {
   RequestTourEmailTemplate,
   ContactFormEmailTemplate,
   UserMailTemplate,
+  AccountBannedTemplate,
+  AccountUnbannedTemplate,
+  AccountDeletedTemplate,
+  AccountSelfDeletionTemplate,
+  AccountVerificationStatusTemplate,
 };

@@ -351,29 +351,44 @@ const verifyUserAccount = asyncHandler(async (req, res, next) => {
 
   if (!User) {
     return next(
-      new apiError(404, "User not found , account deleted or removed by admin")
+      new apiError(404, "User not found, account deleted or removed by admin")
     );
   }
 
+
+  let isVerified;
+
   if (User?.isVerifiedAccount) {
     User.isVerifiedAccount = false;
-    await User.save();
-
-    return res
-      .status(200)
-      .json(
-        new apiSuccess(200, "Account verified status removed successfully")
-      );
+    isVerified = false;
+  } else {
+    User.isVerifiedAccount = true;
+    isVerified = true;
   }
-
-  User.isVerifiedAccount = true;
 
   await User.save();
 
+  await mailSender({
+    type: "account-verification-status",
+    emailAddress: User.email,
+    data: {
+      name: `${User.firstName}${User.lastName}`,
+      email: User.email,
+      isVerified,
+    },
+    subject: `Your Account Has Been ${isVerified ? "Verified" : "Unverified"}`,
+  });
+
   return res
     .status(200)
-    .json(new apiSuccess(200, "Account verified successfully"));
+    .json(
+      new apiSuccess(
+        200,
+        `Account ${isVerified ? "verified" : "verification removed"} successfully`
+      )
+    );
 });
+
 
 const deleteUserAccount = asyncHandler(async (req, res, next) => {
   const { userId } = req.params;
@@ -394,20 +409,15 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
   });
 
   const cloudinaryAssets = [];
-
-  if (existingUser.profilePicture) {
+  if (existingUser.profilePicture)
     cloudinaryAssets.push(existingUser.profilePicture);
-  }
-
-  if (existingUser.identity_document) {
+  if (existingUser.identity_document)
     cloudinaryAssets.push(existingUser.identity_document);
-  }
 
   const properties = await Property.find(
     { author: userId },
     { media: 1 }
   ).lean();
-
   properties.forEach((property) => {
     property.media?.forEach((media) => {
       if (media?.url) cloudinaryAssets.push(media.url);
@@ -420,38 +430,46 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
 
   await Promise.all([
     Property.deleteMany({ author: userId }),
-
-    Message.deleteMany({
-      $or: [{ senderId: userId }, { receiverId: userId }],
-    }),
-
+    Message.deleteMany({ $or: [{ senderId: userId }, { receiverId: userId }] }),
     Conversation.deleteMany({ participants: userId }),
-
     Notification.deleteMany({
       $or: [{ senderId: userId }, { reciverId: userId }],
     }),
-
     notificationPreference.deleteOne({ author: userId }),
-
-    buyerQuery.deleteMany({
-      $or: [{ buyer: userId }, { seller: userId }],
-    }),
-
-    UserRating.deleteMany({
-      $or: [{ rater: userId }, { receiver: userId }],
-    }),
-
+    buyerQuery.deleteMany({ $or: [{ buyer: userId }, { seller: userId }] }),
+    UserRating.deleteMany({ $or: [{ rater: userId }, { receiver: userId }] }),
     plan.updateMany({ userId }, { $set: { userId: null } }),
   ]);
 
   await user.findByIdAndDelete(userId);
 
-  res
+  const isMailSent = await mailSender({
+    type: "account-delete",
+    emailAddress: existingUser?.email,
+    data: {
+      name: `${existingUser?.firstName} ${existingUser?.lastName}`,
+      email: existingUser?.email,
+    },
+    subject: "Your account has been deleted due to policy violations",
+  });
+
+  if (isMailSent) {
+    return res
+      .status(200)
+      .json(
+        new apiSuccess(
+          200,
+          "User account and all related data deleted successfully, and a notification email has been sent to the user."
+        )
+      );
+  }
+
+  return res
     .status(200)
     .json(
       new apiSuccess(
         200,
-        "User account and all related data deleted successfully"
+        "User account and all related data deleted successfully."
       )
     );
 });
@@ -480,11 +498,81 @@ const sendMailToUser = asyncHandler(async (req, res, next) => {
     type: "admin-mail",
     emailAdress: email,
     data: { email, subject, firstName, lastName, message },
+    subject: subject,
   });
 
-  console.log(isMailSent);
-  
+  if (!isMailSent) {
+    return next(new apiError(500, "Can't send mail at the moment"));
+  }
 
+  res.status(200).json(new apiSuccess(200, "Successfully sent admin mail"));
+});
+
+const banUnbannedUser = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return next(new apiError(400, "user id is required"));
+  }
+  const User = await user.findById(userId);
+
+  const BannedUser = User.isBanned;
+
+  if (BannedUser) {
+    User.isBanned = false;
+    await User.save();
+
+    const isMailSent = await mailSender({
+      type: "account-unbanned",
+      emailAdress: User?.email,
+      data: {
+        name: `${User?.firstName} ${User?.lastName}`,
+        email: User?.email,
+      },
+      subject: `Account re activation confirmation`,
+    });
+
+    if (isMailSent) {
+      return res
+        .status(200)
+        .json(
+          new apiSuccess(
+            200,
+            "Successfully removed ban from user , and sent warning mail."
+          )
+        );
+    }
+    return res
+      .status(200)
+      .json(new apiSuccess(200, "Successfully removed ban from user"));
+  } else {
+    User.isBanned = true;
+    await User.save();
+
+    const isMailSent = await mailSender({
+      type: "account-banned",
+      emailAdress: User?.email,
+      data: {
+        name: `${User?.firstName} ${User?.lastName}`,
+        email: User?.email,
+      },
+      subject: `Terms and privacy Policy violation`,
+    });
+
+    if (isMailSent) {
+      return res
+        .status(200)
+        .json(
+          new apiSuccess(
+            200,
+            "Successfully  banned user, and sent confirmation mail."
+          )
+        );
+    }
+    return res
+      .status(200)
+      .json(new apiSuccess(200, "Successfully  banned user"));
+  }
 });
 
 module.exports = {
@@ -494,4 +582,5 @@ module.exports = {
   deleteUserAccount,
   verifyUserAccount,
   sendMailToUser,
+  banUnbannedUser,
 };

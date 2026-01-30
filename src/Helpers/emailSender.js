@@ -5,6 +5,11 @@ const {
   RequestTourEmailTemplate,
   ContactFormEmailTemplate,
   UserMailTemplate,
+  AccountBannedTemplate,
+  AccountUnbannedTemplate,
+  AccountDeletedTemplate,
+  AccountSelfDeletionTemplate,
+  AccountVerificationStatusTemplate,
 } = require("./email.template");
 
 const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
@@ -53,7 +58,37 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
     }
 
     if (type === "admin-mail") {
-      html = UserMailTemplate()
+      html = UserMailTemplate({
+        firstName: data?.firstName,
+        lastName: data?.lastName,
+        subject: data?.subject,
+        message: data?.message,
+        sentAt: Date.now(),
+      });
+    }
+
+    if (type === "account-banned") {
+      html = AccountBannedTemplate(data?.name, data?.email, data?.reason);
+    }
+
+    if (type === "account-unbanned") {
+      html = AccountUnbannedTemplate(data?.name, data?.email);
+    }
+
+    if (type === "account-delete") {
+      html = AccountDeletedTemplate(data?.name, data?.email);
+    }
+
+    if (type === "account-delete-self") {
+      html = AccountSelfDeletionTemplate(data?.name, data?.email);
+    }
+
+    if (type === "account-verification-status") {
+      html = AccountVerificationStatusTemplate(
+        data?.name,
+        data?.email,
+        data?.isVerified
+      );
     }
 
     const mailOptions = {

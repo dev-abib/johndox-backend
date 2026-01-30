@@ -218,8 +218,10 @@ const loginUserController = asyncHandler(async (req, res, next) => {
 
   const isExistingUser = await user.findOne({ email });
 
-  if (!isExistingUser)
-    return next(new apiError(400, "Invalid email or password", null, false));
+  if (isExistingUser.)
+
+    if (!isExistingUser)
+      return next(new apiError(400, "Invalid email or password", null, false));
 
   const isVerifiedPass = await verifyPassword(
     password,
@@ -632,31 +634,32 @@ const updateUser = asyncHandler(async (req, res, next) => {
 const deleteUserAccount = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
   const userId = decodedData?.userData?.userId;
+  const { password } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return next(new apiError(400, "Invalid user id"));
+    return next(new apiError(400, "Invalid user ID."));
   }
 
   const existingUser = await user.findById(userId).lean();
   if (!existingUser) {
-    return next(new apiError(404, "User not found"));
+    return next(new apiError(404, "User not found."));
+  }
+
+  const isVerifiedPass = await verifyPassword(password, existingUser.password);
+  if (!isVerifiedPass) {
+    return next(new apiError(400, "Password did not match. Please try again."));
   }
 
   const cloudinaryAssets = [];
-
-  if (existingUser.profilePicture) {
+  if (existingUser.profilePicture)
     cloudinaryAssets.push(existingUser.profilePicture);
-  }
-
-  if (existingUser.identity_document) {
+  if (existingUser.identity_document)
     cloudinaryAssets.push(existingUser.identity_document);
-  }
 
   const properties = await Property.find(
     { author: userId },
     { media: 1 }
   ).lean();
-
   properties.forEach((property) => {
     property.media?.forEach((media) => {
       if (media?.url) cloudinaryAssets.push(media.url);
@@ -669,41 +672,50 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
 
   await Promise.all([
     Property.deleteMany({ author: userId }),
-
-    Message.deleteMany({
-      $or: [{ senderId: userId }, { receiverId: userId }],
-    }),
-
+    Message.deleteMany({ $or: [{ senderId: userId }, { receiverId: userId }] }),
     Conversation.deleteMany({ participants: userId }),
-
     Notification.deleteMany({
       $or: [{ senderId: userId }, { reciverId: userId }],
     }),
-
     notificationPreference.deleteOne({ author: userId }),
-
-    buyerQuery.deleteMany({
-      $or: [{ buyer: userId }, { seller: userId }],
-    }),
-
-    UserRating.deleteMany({
-      $or: [{ rater: userId }, { receiver: userId }],
-    }),
-
+    buyerQuery.deleteMany({ $or: [{ buyer: userId }, { seller: userId }] }),
+    UserRating.deleteMany({ $or: [{ rater: userId }, { receiver: userId }] }),
     plan.updateMany({ userId }, { $set: { userId: null } }),
   ]);
 
+  const isMailSent = await mailSender({
+    type: "account-delete-self",
+    emailAddress: existingUser?.email,
+    data: {
+      name: `${existingUser?.firstName} ${existingUser?.lastName}`,
+      email: existingUser?.email,
+    },
+    subject: "Account Deletion Confirmation",
+  });
+
   await user.findByIdAndDelete(userId);
 
-  res
+  if (isMailSent) {
+    return res
+      .status(200)
+      .json(
+        new apiSuccess(
+          200,
+          "Your account and all related data have been deleted successfully, and a confirmation email has been sent."
+        )
+      );
+  }
+
+  return res
     .status(200)
     .json(
       new apiSuccess(
         200,
-        "Account and all related data deleted successfully"
+        "Your account and all related data have been deleted successfully."
       )
     );
 });
+
 
 // log out user
 const logoutUser = asyncHandler(async (req, res, next) => {

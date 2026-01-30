@@ -1,5 +1,5 @@
 const express = require("express");
-const { dashboardAnalytics, getSingleUser, userDirectory, sendMailToUser } = require("../../Controller/admin.cms.controller");
+const { dashboardAnalytics, getSingleUser, userDirectory, sendMailToUser,  banUnbannedUser } = require("../../Controller/admin.cms.controller");
 
 const router = express.Router();
 
@@ -13,5 +13,9 @@ router.route("/get-user/:userId").get(getSingleUser);
 
 // send admin mail 
 router.route("/send-mail-to-user/:userId").post(sendMailToUser);
+
+// ban user 
+router.route("/ban-unbanned-user/:userId").post(banUnbannedUser);
+
 
 module.exports = router;
