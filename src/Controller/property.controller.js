@@ -27,6 +27,7 @@ const axios = require("axios");
 const { UserRating } = require("../Schema/user.rating.schema");
 const { buyerQuery } = require("../Schema/buyer.query.schema");
 const { whySellItems } = require("../Schema/why.sell.items.schema");
+const { Amenity } = require("../Schema/aminities.schema");
 
 const addProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -220,11 +221,38 @@ const addProperty = asyncHandler(async (req, res, next) => {
   }
 
   // Normalize amenities to array if it's not already
-  const normalizedAmenities = Array.isArray(amenities)
-    ? amenities
-    : amenities
-      ? [amenities]
-      : [];
+  const normalizedAmenities = (
+    Array.isArray(amenities) ? amenities : amenities ? [amenities] : []
+  )
+    .map((a) => String(a).trim())
+    .filter(Boolean);
+  
+  
+  if (normalizedAmenities.length > 0) {
+    const validAmenities = await Amenity.find({
+      name: {
+        $in: normalizedAmenities.map((a) => new RegExp(`^${a}$`, "i")),
+      },
+    }).select("name");
+
+    const validAmenityNames = validAmenities.map((a) => a.name.toLowerCase());
+
+    const invalidAmenities = normalizedAmenities.filter(
+      (amenity) => !validAmenityNames.includes(amenity.toLowerCase())
+    );
+
+    if (invalidAmenities.length > 0) {
+      return next(
+        new apiError(
+          400,
+          "Invalid amenities provided",
+          { amenities: `Invalid amenities: ${invalidAmenities.join(", ")}` },
+          false
+        )
+      );
+    }
+  }
+
 
   const media = [];
 
@@ -473,11 +501,38 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Validation error", errors, false));
   }
 
-  const normalizedAmenities = Array.isArray(amenities)
-    ? amenities
-    : amenities
-      ? [amenities]
-      : [];
+  // Normalize amenities to array if it's not already
+  const normalizedAmenities = (
+    Array.isArray(amenities) ? amenities : amenities ? [amenities] : []
+  )
+    .map((a) => String(a).trim())
+    .filter(Boolean);
+  
+  
+  if (normalizedAmenities.length > 0) {
+    const validAmenities = await Amenity.find({
+      name: {
+        $in: normalizedAmenities.map((a) => new RegExp(`^${a}$`, "i")),
+      },
+    }).select("name");
+
+    const validAmenityNames = validAmenities.map((a) => a.name.toLowerCase());
+
+    const invalidAmenities = normalizedAmenities.filter(
+      (amenity) => !validAmenityNames.includes(amenity.toLowerCase())
+    );
+
+    if (invalidAmenities.length > 0) {
+      return next(
+        new apiError(
+          400,
+          "Invalid amenities provided",
+          { amenities: `Invalid amenities: ${invalidAmenities.join(", ")}` },
+          false
+        )
+      );
+    }
+  }
 
   let updatedImages = [
     ...(property.media.filter((m) => m.fileType === "image") || []),

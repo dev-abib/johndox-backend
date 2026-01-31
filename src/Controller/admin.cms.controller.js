@@ -1,5 +1,6 @@
 const { mailSender } = require("../Helpers/emailSender");
 const { deleteCloudinaryAsset } = require("../Helpers/uploadCloudinary");
+const { Amenity } = require("../Schema/aminities.schema");
 const { buyerQuery } = require("../Schema/buyer.query.schema");
 const { Conversation } = require("../Schema/conversation.schema");
 const { Message } = require("../Schema/message.schema");
@@ -575,7 +576,7 @@ const banUnbannedUser = asyncHandler(async (req, res, next) => {
 
 const getFavoritesListingById = asyncHandler(async (req, res, next) => {
   const { userId } = req.params;
-  
+
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
   const limit = Math.min(
     Math.max(parseInt(req.query.limit || "10", 10), 1),
@@ -624,6 +625,64 @@ const getFavoritesListingById = asyncHandler(async (req, res, next) => {
   );
 });
 
+const upsertAmenity = asyncHandler(async (req, res, next) => {
+  console.log(req);
+
+  const { name, oldName } = req.body;
+
+  if (!name) {
+    return next(new apiError(400, "Amenity name is required"));
+  }
+
+  let isExist;
+
+  if (oldName) {
+    isExist = await Amenity.findOne({
+      name: { $regex: `^${oldName}$`, $options: "i" },
+    });
+  }
+
+  if (isExist) {
+    isExist.name = name;
+    await isExist.save();
+    return res
+      .status(200)
+      .json(new apiSuccess(200, "Amenity updated successfully", isExist, true));
+  }
+
+  let amenity;
+
+  amenity = await Amenity.create({ name });
+
+  amenity.save();
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Amenity saved successfully", amenity, true));
+});
+
+const getAllAmenities = asyncHandler(async (req, res) => {
+  const amenities = await Amenity.find().sort({ createdAt: -1 }).lean();
+
+  return res
+    .status(200)
+    .json(
+      new apiSuccess(200, "Amenities retrieved successfully", amenities, true)
+    );
+});
+
+const deleteAmenity = asyncHandler(async (req, res, next) => {
+  const { name } = req.params;
+
+  const amenity = await Amenity.findOneAndDelete({ name: name });
+
+  if (!amenity) {
+    return next(new apiError(404, "Amenity not found"));
+  }
+
+  return res
+    .status(200)
+    .json(new apiSuccess(200, "Amenity deleted successfully", null, true));
+});
 
 module.exports = {
   dashboardAnalytics,
@@ -634,4 +693,7 @@ module.exports = {
   sendMailToUser,
   banUnbannedUser,
   getFavoritesListingById,
+  upsertAmenity,
+  getAllAmenities,
+  deleteAmenity,
 };
