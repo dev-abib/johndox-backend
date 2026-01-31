@@ -1026,7 +1026,6 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
 
   const filter = {};
 
-  /* 🔍 SEARCH */
   if (req.query.search) {
     const search = String(req.query.search).trim();
     if (search) {
@@ -1040,7 +1039,6 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
     }
   }
 
-  /* ⏱ SORTING */
   const sortMap = {
     newest: { createdAt: -1 },
     oldest: { createdAt: 1 },
@@ -1080,8 +1078,6 @@ const getUserQueries = asyncHandler(async (req, res, next) => {
     )
   );
 });
-
-
 
 const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
   const {
@@ -1179,6 +1175,23 @@ const getSmtpCredentials = asyncHandler(async (req, res, next) => {
     );
 });
 
+const getSupportQueriesById = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return next(new apiError(400, "User id is required"));
+  }
+
+  const User = await user.findById(userId);
+
+  const mySupportMessage = ContactQuery.find({
+    email: User?.email,
+  }).lean();
+
+  if ((await mySupportMessage).length <1) {
+    return next(new apiError(404, ));
+  }
+});
 
 module.exports = {
   loginAdminController,

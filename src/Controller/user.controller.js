@@ -915,6 +915,18 @@ const googleAuthController = asyncHandler(async (req, res, next) => {
   const payload = await verifyGoogleToken(idToken);
   const { email, name, picture } = payload;
 
+  const isRestricted = await restrictedUser.findOne({ email: email });
+
+  if (isRestricted)
+    return next(
+      new apiError(
+        401,
+        "Your account has been permanently removed and restricted. you can't login or create account on this site.",
+        null,
+        false
+      )
+    );
+
   if (!email) {
     return next(new apiError(400, "Email not found in Google account"));
   }
@@ -924,6 +936,15 @@ const googleAuthController = asyncHandler(async (req, res, next) => {
   const lastName = nameParts.join(" ") || "User";
 
   let existingUser = await user.findOne({ email });
+
+  if (existingUser.isBanned === true) {
+    return next(
+      new apiError(
+        401,
+        "Your account is temporarily banned , to login please contact with our support team."
+      )
+    );
+  }
 
   if (!existingUser && !userRole) {
     return next(
