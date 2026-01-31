@@ -11,16 +11,19 @@ const {
   AccountSelfDeletionTemplate,
   AccountVerificationStatusTemplate,
 } = require("./email.template");
+const { smtpSettings } = require("../Schema/smtp.settings.schema");
 
 const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
   try {
+    const smtpSetting = await smtpSettings.findOne();
+
     const transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: parseInt(process.env.MAIL_PORT),
-      secure: process.env.MAIL_ENCRYPTION === "SSL",
+      host: smtpSetting.mail_host || process.env.MAIL_HOST,
+      port: parseInt(smtpSetting.mail_port) || parseInt(process.env.MAIL_PORT),
+      secure: smtpSetting.mail_encryption === "SSL",
       auth: {
-        user: process.env.MAIL_USERNAME,
-        pass: process.env.MAIL_PASSWORD,
+        user: smtpSetting.mail_user_name || process.env.MAIL_USERNAME,
+        pass: smtpSetting.mail_password || process.env.MAIL_PASSWORD,
       },
     });
 
@@ -92,8 +95,11 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
     }
 
     const mailOptions = {
-      from: `"${process.env.MAIL_FROM_NAME}" <${process.env.MAIL_FROM_ADDRESS}>`,
-      to: emailAdress || process.env.SITE_OWNER_MAIL,
+      from: `"${smtpSetting.mail_from_name || process.env.MAIL_FROM_NAME}" <${smtpSetting.mail_from_address || process.env.MAIL_FROM_ADDRESS}>`,
+      to:
+        emailAdress ||
+        smtpSetting.super_admin_mail ||
+        process.env.SITE_OWNER_MAIL,
       subject,
       html,
     };

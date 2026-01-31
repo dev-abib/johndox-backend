@@ -1134,8 +1134,6 @@ const upsertSmtpCredentials = asyncHandler(async (req, res, next) => {
       );
   }
 
-  if (mail_port && typeof mail_port !== "number")
-    return next(new apiError(400, "Mail port must be a number"));
   if (mail_from_address && !emailChecker(mail_from_address))
     return next(new apiError(400, "Invalid mail from email address"));
   if (super_admin_mail && !emailChecker(super_admin_mail))
