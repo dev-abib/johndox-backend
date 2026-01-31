@@ -3,6 +3,7 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { OAuth2Client } = require("google-auth-library");
+const axios = require("axios")
 
 /**
  * Hashes the user's password for secure storage.
@@ -163,16 +164,28 @@ const otpGenerator = () => {
   return aleaRNGFactory(new Date()).uInt32().toString().slice(0, 4);
 };
 
-const verifyGoogleToken = async (idToken) => {
-  const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-  const ticket = await client.verifyIdToken({
-    idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
+const verifyGoogleAccessToken = async (accessToken) => {
+  try {
+    const response = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-  return ticket.getPayload();
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Google access token verification failed:",
+      error.response?.data || error.message
+    );
+    throw new Error("Invalid Google access token");
+  }
 };
+
 
 module.exports = {
   createSessionToken,
@@ -182,5 +195,5 @@ module.exports = {
   otpGenerator,
   createAdminSessionToken,
   verifyAdminSessionToken,
-  verifyGoogleToken,
+  verifyGoogleAccessToken,
 };

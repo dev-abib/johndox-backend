@@ -9,6 +9,7 @@ const {
   otpGenerator,
   decodeSessionToken,
   verifyGoogleToken,
+  verifyGoogleAccessToken,
 } = require("../Helpers/helper");
 const crypto = require("crypto");
 
@@ -902,20 +903,20 @@ const contactSupportForMe = asyncHandler(async (req, res, next) => {
 });
 
 const googleAuthController = asyncHandler(async (req, res, next) => {
-  const { idToken, role } = req.body;
+  const { access_token, role } = req.body;
 
   const roles = ["buyer", "seller"];
 
-  if (!idToken) {
-    return next(new apiError(400, "Google ID token is required"));
+  if (!access_token) {
+    return next(new apiError(400, "Google access token is required"));
   }
 
   const userRole = roles.includes(role) ? role : "buyer";
 
-  const payload = await verifyGoogleToken(idToken);
+  const payload = await verifyGoogleAccessToken(access_token);
   const { email, name, picture } = payload;
 
-  const isRestricted = await restrictedUser.findOne({ email: email });
+  const isRestricted = await restrictedUser.findOne({ email });
 
   if (isRestricted)
     return next(
@@ -937,20 +938,11 @@ const googleAuthController = asyncHandler(async (req, res, next) => {
 
   let existingUser = await user.findOne({ email });
 
-  if (existingUser.isBanned === true) {
+  if (existingUser?.isBanned) {
     return next(
       new apiError(
         401,
-        "Your account is temporarily banned , to login please contact with our support team."
-      )
-    );
-  }
-
-  if (!existingUser && !userRole) {
-    return next(
-      new apiError(
-        400,
-        "To create a account , you must have to provide user role"
+        "Your account is temporarily banned, to login please contact our support team."
       )
     );
   }
@@ -996,6 +988,7 @@ const googleAuthController = asyncHandler(async (req, res, next) => {
     )
   );
 });
+
 
 const upsertNotificationsPreference = asyncHandler(async (req, res, next) => {
   const {
