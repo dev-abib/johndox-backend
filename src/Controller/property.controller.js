@@ -406,79 +406,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     }
   }
 
-  const addressString = `${fullAddress}, ${city}, ${state}`;
-  if (!addressString.trim()) {
-    return next(new apiError(400, "Invalid address provided", null, false));
-  }
-
-  const key = process.env.LOCATIONIQ_KEY;
-  if (!key) return next(new apiError(500, "No Location key provided"));
-
-  const url = "https://us1.locationiq.com/v1/search";
-
-  const response = await axios
-    .get(url, {
-      params: {
-        key,
-        q: fullAddress,
-        format: "json",
-        limit: 1,
-        addressdetails: 1,
-        normalizecity: 1,
-      },
-      timeout: 10000,
-    })
-    .catch((error) => {
-      if (error.response) {
-        return next(
-          new apiError(
-            error.response.status,
-            `${error.response.data.error} address` ||
-              "Geocoding request failed.",
-            null,
-            false
-          )
-        );
-      } else if (error.request) {
-        return next(
-          new apiError(
-            500,
-            "Network error or no response from the geocoding service.",
-            null,
-            false
-          )
-        );
-      } else {
-        return next(
-          new apiError(
-            500,
-            error.message || "An unknown error occurred during geocoding.",
-            null,
-            false
-          )
-        );
-      }
-    });
-
-  if (!response?.data || response.data.length === 0) {
-    return next(
-      new apiError(400, "Unable to geocode the provided address", null, false)
-    );
-  }
-
-  const lat = Number(response.data[0].lat);
-  const lng = Number(response.data[0].lon);
-
-  if (!lat || !lng) {
-    return next(new apiError(401, "Address not found."));
-  }
-
-  if (!lat || !lng) {
-    return next(
-      new apiError(400, "Unable to geocode the provided address", null, false)
-    );
-  }
-
   const files = req.files || {};
   const photoFiles = files.photos || [];
   const videoFiles = files.video || [];
@@ -501,14 +428,13 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Validation error", errors, false));
   }
 
-  // Normalize amenities to array if it's not already
+  // Normalize amenities
   const normalizedAmenities = (
     Array.isArray(amenities) ? amenities : amenities ? [amenities] : []
   )
     .map((a) => String(a).trim())
     .filter(Boolean);
-  
-  
+
   if (normalizedAmenities.length > 0) {
     const validAmenities = await Amenity.find({
       name: {
@@ -534,15 +460,11 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     }
   }
 
-  let updatedImages = [
-    ...(property.media.filter((m) => m.fileType === "image") || []),
-  ];
+  let updatedImages =
+    property.media.filter((m) => m.fileType === "image") || [];
+  let updatedVideos =
+    property.media.filter((m) => m.fileType === "video") || [];
 
-  let updatedVideos = [
-    ...(property.media.filter((m) => m.fileType === "video") || []),
-  ];
-
-  // Delete selected images from Cloudinary
   if (Array.isArray(deleteImagesArray) && deleteImagesArray.length > 0) {
     try {
       for (const imageUrl of deleteImagesArray) {
@@ -552,16 +474,12 @@ const updateProperty = asyncHandler(async (req, res, next) => {
         }
       }
     } catch (err) {
-      console.error("Error deleting images from Cloudinary:", err);
       return next(
         new apiError(500, "Failed to delete old images", null, false)
       );
     }
   }
 
-  // Upload new files (photos and videos)
-
-  // Upload new photos
   for (const file of photoFiles) {
     const result = await uploadCloudinary(file.buffer, "property/media/photos");
     if (!result?.secure_url) {
@@ -570,37 +488,25 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     updatedImages.push({ url: result.secure_url, fileType: "image" });
   }
 
-  // ✅ SINGLE VIDEO LOGIC:
-  // If user uploads a new video, delete the previous one and replace it.
   if (videoFiles.length > 0) {
-    // Delete existing video if any
     if (updatedVideos.length > 0) {
-      try {
-        await deleteCloudinaryAsset(updatedVideos[0].url);
-      } catch (err) {
-        console.error("Error deleting video from Cloudinary:", err);
-        return next(
-          new apiError(500, "Failed to delete old video", null, false)
-        );
-      }
+      await deleteCloudinaryAsset(updatedVideos[0].url);
     }
 
-    // Upload the new video (first one only)
-    const file = videoFiles[0];
-    const result = await uploadCloudinary(file.buffer, "property/media/videos");
+    const result = await uploadCloudinary(
+      videoFiles[0].buffer,
+      "property/media/videos"
+    );
 
     if (!result?.secure_url) {
       return next(new apiError(500, "Failed to upload new video", null, false));
     }
 
-    // Replace with the new video
     updatedVideos = [{ url: result.secure_url, fileType: "video" }];
   }
 
-  // Combine images and videos
   const updatedMedia = [...updatedImages, ...updatedVideos];
 
-  // Ensure at least one image/video is uploaded
   if (updatedMedia.length === 0) {
     return next(
       new apiError(
@@ -612,7 +518,56 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Update the property in the database with the provided fields, or keep the existing ones if not provided
+  /* ===============================
+     ADDRESS CHANGE DETECTION
+  =============================== */
+
+  const shouldUpdateLocation =
+    (fullAddress && fullAddress !== property.fullAddress) ||
+    (city && city !== property.city) ||
+    (state && state !== property.state);
+
+  let lat;
+  let lng;
+
+  if (shouldUpdateLocation) {
+    const addressString = `${fullAddress || property.fullAddress}, ${
+      city || property.city
+    }, ${state || property.state}`;
+
+    const key = process.env.LOCATIONIQ_KEY;
+    if (!key) return next(new apiError(500, "No Location key provided"));
+
+    const response = await axios.get("https://us1.locationiq.com/v1/search", {
+      params: {
+        key,
+        q: addressString,
+        format: "json",
+        limit: 1,
+      },
+      timeout: 10000,
+    });
+
+    if (!response?.data?.length) {
+      return next(
+        new apiError(400, "Unable to geocode the provided address", null, false)
+      );
+    }
+
+    lat = Number(response.data[0].lat);
+    lng = Number(response.data[0].lon);
+
+    if (!lat || !lng) {
+      return next(
+        new apiError(400, "Invalid coordinates from geocoding", null, false)
+      );
+    }
+  }
+
+  /* ===============================
+     UPDATE PROPERTY FIELDS
+  =============================== */
+
   property.propertyName = propertyName || property.propertyName;
   property.description = description || property.description;
   property.propertyType = propertyType || property.propertyType;
@@ -628,17 +583,18 @@ const updateProperty = asyncHandler(async (req, res, next) => {
   property.areaInSqMeter = areaInSqMeter || property.areaInSqMeter;
   property.amenities =
     normalizedAmenities.length > 0 ? normalizedAmenities : property.amenities;
-  property.media = updatedMedia.length > 0 ? updatedMedia : property.media;
+  property.media = updatedMedia;
 
-  property.category = category
-    ? (await Category.findOne({ name: category }))._id
-    : property.category;
+  if (category) {
+    const cat = await Category.findOne({ name: category });
+    if (cat) property.category = cat._id;
+  }
 
-  // Handle lat/lng: if lat and lng are provided, update; if not, use existing values
-  property.location.geo.coordinates =
-    lat && lng ? [lng, lat] : property.location.geo.coordinates;
-  property.location.lat = lat ?? property.location.lat;
-  property.location.lng = lng ?? property.location.lng;
+  if (lat && lng) {
+    property.location.geo.coordinates = [lng, lat];
+    property.location.lat = lat;
+    property.location.lng = lng;
+  }
 
   await property.save();
 
@@ -648,6 +604,7 @@ const updateProperty = asyncHandler(async (req, res, next) => {
       new apiSuccess(200, "Property updated successfully", property, false)
     );
 });
+
 
 const getMyProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
@@ -887,7 +844,7 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     filter.bedrooms = { $gte: mb };
   }
 
-  // --- Bathrooms
+ 
   if (
     req.query.bathrooms !== undefined &&
     String(req.query.bathrooms).trim() !== ""
@@ -1885,11 +1842,7 @@ const updateWhyChooseUsItems = asyncHandler(async (req, res, next) => {
   const { title, shortDescription } = req.body;
 
   const iconImg = req?.file;
-
-  console.log(title, shortDescription, iconImg);
-
   const { itemId } = req.params;
-  console.log(itemId);
 
   const item = await whyChooseUsItems.findById(itemId);
 
