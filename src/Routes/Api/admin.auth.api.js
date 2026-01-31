@@ -28,11 +28,15 @@ const {
   getUserQueries,
   upsertSmtpCredentials,
   getSmtpCredentials,
+  getSupportQueriesById,
+  getSupportQueriesByMail,
 } = require("../../Controller/admin.auth.controller");
 const { uploadMedia } = require("../../middleware/multer.middleware");
 const { adminAuthGuard } = require("../../middleware/adminAuthGuard");
-const { verifyUserAccount, deleteUserAccount } = require("../../Controller/admin.cms.controller");
-
+const {
+  verifyUserAccount,
+  deleteUserAccount,
+} = require("../../Controller/admin.cms.controller");
 
 // extracting router from express
 const { Router } = express;
@@ -85,7 +89,6 @@ router.route("/update/site-settings").put(
 
 // get site settings data
 router.route("/get/site-settings").get(getSiteSettings);
-
 
 // remove user
 router.route("/remove-user/:userId").delete(adminAuthGuard, adminDeleteUser);
@@ -143,5 +146,9 @@ router.route("/verify-user/:userId").post(adminAuthGuard, verifyUserAccount);
 router
   .route("/delete-user-account/:userId")
   .delete(adminAuthGuard, deleteUserAccount);
+
+// get support queries by user id
+
+router.route("/get-user-support-query/:email").get(getSupportQueriesByMail);
 
 module.exports = router;

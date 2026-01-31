@@ -1175,22 +1175,55 @@ const getSmtpCredentials = asyncHandler(async (req, res, next) => {
     );
 });
 
-const getSupportQueriesById = asyncHandler(async (req, res, next) => {
-  const { userId } = req.params;
+const getSupportQueriesByMail = asyncHandler(async (req, res, next) => {
+  const {email} = req.params
+  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt(req.query.limit || "10", 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
 
-  if (!userId) {
-    return next(new apiError(400, "User id is required"));
+  const filter = {email:email};
+
+  const sortMap = {
+    newest: { createdAt: -1 },
+    oldest: { createdAt: 1 },
+  };
+
+  const sort = sortMap[String(req.query.sort).toLowerCase()] || sortMap.newest;
+
+  const totalItems = await ContactQuery.countDocuments(filter);
+  const totalPages = Math.ceil(totalItems / limit);
+
+  const queries = await ContactQuery.find(filter)
+    .sort(sort)
+    .skip(skip)
+    .limit(limit);
+
+  if (!queries.length) {
+    return next(new apiError(404, "Currently no query available"));
   }
 
-  const User = await user.findById(userId);
-
-  const mySupportMessage = ContactQuery.find({
-    email: User?.email,
-  }).lean();
-
-  if ((await mySupportMessage).length <1) {
-    return next(new apiError(404, ));
-  }
+  return res.status(200).send(
+    new apiSuccess(
+      200,
+      "User queries retrieved successfully",
+      {
+        items: queries,
+        pagination: {
+          totalItems,
+          totalPages,
+          currentPage: page,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+        appliedFilters: req.query,
+      },
+      true
+    )
+  );
 });
 
 module.exports = {
@@ -1220,4 +1253,5 @@ module.exports = {
   getUserQueries,
   upsertSmtpCredentials,
   getSmtpCredentials,
+  getSupportQueriesByMail,
 };
