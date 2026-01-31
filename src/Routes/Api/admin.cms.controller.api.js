@@ -1,5 +1,5 @@
 const express = require("express");
-const { dashboardAnalytics, getSingleUser, userDirectory, sendMailToUser,  banUnbannedUser } = require("../../Controller/admin.cms.controller");
+const { dashboardAnalytics, getSingleUser, userDirectory, sendMailToUser,  banUnbannedUser, getFavoritesListingById } = require("../../Controller/admin.cms.controller");
 
 const router = express.Router();
 
@@ -17,5 +17,9 @@ router.route("/send-mail-to-user/:userId").post(sendMailToUser);
 // ban user 
 router.route("/ban-unbanned-user/:userId").post(banUnbannedUser);
 
+// get favorite listing by user id
+router
+  .route("/get-favorite-listing-by-id/:userId")
+  .get(getFavoritesListingById);
 
 module.exports = router;

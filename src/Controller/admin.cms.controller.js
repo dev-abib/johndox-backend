@@ -355,7 +355,6 @@ const verifyUserAccount = asyncHandler(async (req, res, next) => {
     );
   }
 
-
   let isVerified;
 
   if (User?.isVerifiedAccount) {
@@ -388,7 +387,6 @@ const verifyUserAccount = asyncHandler(async (req, res, next) => {
       )
     );
 });
-
 
 const deleteUserAccount = asyncHandler(async (req, res, next) => {
   const { userId } = req.params;
@@ -575,6 +573,58 @@ const banUnbannedUser = asyncHandler(async (req, res, next) => {
   }
 });
 
+const getFavoritesListingById = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+  
+  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+  const limit = Math.min(
+    Math.max(parseInt(req.query.limit || "10", 10), 1),
+    100
+  );
+  const skip = (page - 1) * limit;
+
+  const filter = { favourites: userId };
+
+  const [favoriteListings, total] = await Promise.all([
+    Property.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select("-author -favourites")
+      .lean(),
+    Property.countDocuments(filter),
+  ]);
+
+  if (total === 0) {
+    return next(
+      new apiError(
+        404,
+        "Currently this user doesn't have any favorite listing",
+        null,
+        false
+      )
+    );
+  }
+
+  return res.status(200).json(
+    new apiSuccess(
+      200,
+      "Successfully retrieved all favorite listings",
+      {
+        listings: favoriteListings,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+      true
+    )
+  );
+});
+
+
 module.exports = {
   dashboardAnalytics,
   userDirectory,
@@ -583,4 +633,5 @@ module.exports = {
   verifyUserAccount,
   sendMailToUser,
   banUnbannedUser,
+  getFavoritesListingById,
 };
