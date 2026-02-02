@@ -37,6 +37,7 @@ app.use(
       "https://johndox-frontend.vercel.app",
       "http://103.161.9.205:5173",
       "https://johndox.vercel.app",
+      "http://localhost:3001",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
