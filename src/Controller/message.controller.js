@@ -214,8 +214,8 @@ const getConversations = asyncHandler(async (req, res, next) => {
     .skip(skip)
     .limit(limit)
     .populate({
-      path: "propertyId", // populate property details if exists
-      select: "title price location images", // adjust fields
+      path: "propertyId", 
+      select: "title price location images", 
     })
     .lean();
 
@@ -321,7 +321,7 @@ const getConversations = asyncHandler(async (req, res, next) => {
               : null,
           }
         : null,
-      property: conv.propertyId || null, // include property details
+      property: conv.propertyId || null, 
       lastMessageAt: conv.lastMessageAt,
       updatedAt: conv.lastMessageAt,
     };

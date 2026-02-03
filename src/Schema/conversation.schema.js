@@ -29,7 +29,7 @@ const conversationSchema = new Schema(
 
     propertyId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "property",
+      ref: "Property",
       default: null,
       index: true,
     },
