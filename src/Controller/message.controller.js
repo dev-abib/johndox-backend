@@ -128,7 +128,7 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
   };
 
   if (propertyId) {
-    convUpdate.$set.propertyId = propertyId; // store the property
+    convUpdate.$set.propertyId = propertyId; 
   }
 
   const conv = await Conversation.findOneAndUpdate(
@@ -137,7 +137,6 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
     { new: true, upsert: true }
   );
 
-  // Ensure sender unread exists
   if (conv?.unreadCount?.get(senderId) == null) {
     await Conversation.updateOne(
       { _id: conv._id },
@@ -193,7 +192,6 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
     );
 });
 
-// ==================== Get Conversations ====================
 const getConversations = asyncHandler(async (req, res, next) => {
   const decoded = await decodeSessionToken(req);
   const myId = decoded?.userData?.userId;
@@ -214,8 +212,8 @@ const getConversations = asyncHandler(async (req, res, next) => {
     .skip(skip)
     .limit(limit)
     .populate({
-      path: "propertyId", 
-      select: "title price location images", 
+      path: "propertyId",
+      select: "propertyName price location",
     })
     .lean();
 
@@ -321,7 +319,7 @@ const getConversations = asyncHandler(async (req, res, next) => {
               : null,
           }
         : null,
-      property: conv.propertyId || null, 
+      property: conv.propertyId || null,
       lastMessageAt: conv.lastMessageAt,
       updatedAt: conv.lastMessageAt,
     };
@@ -340,19 +338,34 @@ const getConversations = asyncHandler(async (req, res, next) => {
 
 const getChatMessages = asyncHandler(async (req, res, next) => {
   const decoded = await decodeSessionToken(req);
-  const myId = decoded?.userData?.userId;
+  const myId = decoded?.userData?.userId || decoded?.userId;
+
+  if (!myId) {
+    return next(new apiError(401, "Unauthorized"));
+  }
 
   const { otherUserId } = req.params;
-  const limit = Math.min(Math.max(Number(req.query.limit || 30), 1), 100);
+  if (!otherUserId) {
+    return next(new apiError(400, "Other user ID is required"));
+  }
 
-  if (!myId) return next(new apiError(401, "Unauthorized", null, false));
-  if (!otherUserId)
-    return next(new apiError(400, "Other user ID is required", null, false));
+  if (myId.toString() === otherUserId.toString()) {
+    return next(new apiError(400, "Cannot chat with yourself"));
+  }
+
+  const limit = Number(req.query.limit) || 30;
+  const safeLimit = Math.min(Math.max(limit, 1), 100);
 
   let cursorDate = null;
   if (req.query.cursor) {
-    const d = new Date(req.query.cursor);
-    if (!Number.isNaN(d.getTime())) cursorDate = d;
+    try {
+      cursorDate = new Date(req.query.cursor);
+      if (Number.isNaN(cursorDate.getTime())) {
+        cursorDate = null;
+      }
+    } catch {
+      cursorDate = null;
+    }
   }
 
   const filter = {
@@ -362,27 +375,68 @@ const getChatMessages = asyncHandler(async (req, res, next) => {
     ],
   };
 
-  if (cursorDate) filter.createdAt = { $lt: cursorDate };
+  if (cursorDate) {
+    filter.createdAt = { $lt: cursorDate };
+  }
 
-  const messages = await Message.find(filter)
-    .sort({ createdAt: -1 })
-    .limit(limit)
+  // Fetch ONE MORE document to detect if there are older messages
+  const messagesRaw = await Message.find(filter)
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(safeLimit + 1)
+    .populate({
+      path: "senderId",
+      select: "name firstName lastName profilePicture",
+    })
     .lean();
 
+  const hasMore = messagesRaw.length > safeLimit;
+  const messages = hasMore ? messagesRaw.slice(0, safeLimit) : messagesRaw;
+
+  // Oldest message in the returned page (for next cursor)
+  const oldestInPage = messages[messages.length - 1];
+  const nextCursor = oldestInPage ? oldestInPage.createdAt.toISOString() : null;
+
+  // Reverse so frontend gets oldest → newest
   messages.reverse();
 
-  const nextCursor = messages.length ? messages[0].createdAt : null;
+  const chatUser = await user
+    .findById(otherUserId)
+    .select("name firstName lastName profilePicture isOnline lastSeen role")
+    .lean();
 
-  return res
-    .status(200)
-    .json(
-      new apiSuccess(
-        200,
-        "Messages retrieved successfully",
-        { messages, nextCursor },
-        false
-      )
-    );
+  if (!chatUser) {
+    return next(new apiError(404, "Chat user not found"));
+  }
+
+
+  if (!cursorDate) {
+    await Message.updateMany(
+      {
+        senderId: otherUserId,
+        receiverId: myId,
+        read: { $ne: true },
+      },
+      { $set: { read: true, readAt: new Date() } }
+    ).catch(() => {}); 
+  }
+
+  return res.status(200).json(
+    new apiSuccess(200, "Messages retrieved successfully", {
+      chatUser: {
+        id: chatUser._id.toString(),
+        name:
+          chatUser.name ||
+          `${chatUser.firstName || ""} ${chatUser.lastName || ""}`.trim(),
+        profilePicture: chatUser.profilePicture,
+        isOnline: !!chatUser.isOnline,
+        lastSeen: chatUser.lastSeen,
+        role: chatUser.role,
+      },
+      messages,
+      nextCursor,
+      hasMore, 
+    })
+  );
 });
 
 // PATCH /api/chat/seen/:otherUserId
