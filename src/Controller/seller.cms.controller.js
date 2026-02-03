@@ -602,16 +602,16 @@ const trackPropertyView = asyncHandler(async (req, res, next) => {
     viewedAt: { $gte: sixHoursAgo },
   });
 
-  if (!existingView) {
-    property.views += 1;
-    await property.save();
+    if (!existingView) {
+      property.views += 1;
+      await property.save();
 
-    await PropertyView.create({
-      propertyId,
-      userId,
-      ipAddress,
-    });
-  }
+      await PropertyView.create({
+        propertyId,
+        userId,
+        ipAddress,
+      });
+    }
 
   res.status(200).json(
     new apiSuccess(200, "Property view tracked successfully", {

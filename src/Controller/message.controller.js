@@ -34,13 +34,12 @@ const getLastMessageType = (text, fileType) => {
   return "";
 };
 
-// POST /api/chat/send/:receiverId (multipart: message, file)
 const sendChatMessage = asyncHandler(async (req, res, next) => {
   const decoded = await decodeSessionToken(req);
   const senderId = decoded?.userData?.userId;
 
   const { receiverId } = req.params;
-  const { message } = req.body;
+  const { message, propertyId } = req.body;
 
   if (!senderId) return next(new apiError(401, "Unauthorized", null, false));
   if (!receiverId)
@@ -74,8 +73,8 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
       fileType === "image"
         ? "chat/media/images"
         : fileType === "video"
-        ? "chat/media/videos"
-        : "chat/media/pdfs";
+          ? "chat/media/videos"
+          : "chat/media/pdfs";
 
     const result = await uploadCloudinary(req.file.buffer, folder, "auto");
     if (!result?.secure_url) {
@@ -93,9 +92,9 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
     fileUrl,
     fileType,
     status: "pending",
+    propertyId: propertyId || null,
   });
 
-  // Update conversation (fast list)
   const key = buildParticipantsKey(senderId, receiverId);
   const now = new Date();
 
@@ -104,40 +103,42 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
     (fileType === "image"
       ? "📷 Photo"
       : fileType === "video"
-      ? "🎥 Video"
-      : fileType === "pdf"
-      ? "📄 PDF"
-      : "");
+        ? "🎥 Video"
+        : fileType === "pdf"
+          ? "📄 PDF"
+          : "");
 
   const lastType = getLastMessageType(message, fileType);
 
-  // ✅ FIXED: remove unreadCount: {} from $setOnInsert
+  // Update or create conversation
+  const convUpdate = {
+    $setOnInsert: {
+      participants: [senderId, receiverId],
+      participantsKey: key,
+    },
+    $set: {
+      lastMessageId: savedMessage._id,
+      lastMessageText: lastText,
+      lastMessageType: lastType,
+      lastMessageAt: now,
+    },
+    $inc: {
+      [`unreadCount.${receiverId}`]: 1,
+    },
+  };
+
+  if (propertyId) {
+    convUpdate.$set.propertyId = propertyId; // store the property
+  }
+
   const conv = await Conversation.findOneAndUpdate(
     { participantsKey: key },
-    {
-      $setOnInsert: {
-        participants: [senderId, receiverId],
-        participantsKey: key,
-      },
-      $set: {
-        lastMessageId: savedMessage._id,
-        lastMessageText: lastText,
-        lastMessageType: lastType,
-        lastMessageAt: now,
-      },
-      $inc: {
-        [`unreadCount.${receiverId}`]: 1,
-      },
-    },
+    convUpdate,
     { new: true, upsert: true }
   );
 
-  // ✅ Ensure sender unread exists (optional)
-  const senderUnread = conv?.unreadCount?.get
-    ? conv.unreadCount.get(String(senderId))
-    : conv?.unreadCount?.[String(senderId)];
-
-  if (senderUnread == null) {
+  // Ensure sender unread exists
+  if (conv?.unreadCount?.get(senderId) == null) {
     await Conversation.updateOne(
       { _id: conv._id },
       { $set: { [`unreadCount.${senderId}`]: 0 } }
@@ -156,6 +157,7 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
     status: savedMessage.status,
     createdAt: savedMessage.createdAt,
     senderName,
+    propertyId: savedMessage.propertyId || null,
   };
 
   const io = getSocketInstance();
@@ -191,50 +193,151 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
     );
 });
 
-// GET /api/chat/conversations
+// ==================== Get Conversations ====================
 const getConversations = asyncHandler(async (req, res, next) => {
   const decoded = await decodeSessionToken(req);
   const myId = decoded?.userData?.userId;
 
-  if (!myId) return next(new apiError(401, "Unauthorized", null, false));
+  if (!myId) {
+    return next(new apiError(401, "Unauthorized", null, false));
+  }
 
-  const conversations = await Conversation.find({ participants: myId })
+  const page = parseInt(req.query.page) || 1;
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+  const skip = (page - 1) * limit;
+
+  // Fetch conversations
+  const conversations = await Conversation.find({
+    participants: myId,
+  })
     .sort({ lastMessageAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .populate({
+      path: "propertyId", // populate property details if exists
+      select: "title price location images", // adjust fields
+    })
     .lean();
 
-  const result = [];
-  for (const conv of conversations) {
+  if (conversations.length === 0) {
+    return res
+      .status(200)
+      .json(
+        new apiSuccess(
+          200,
+          "No conversations found",
+          { totalUnreadCount: 0, conversations: [], hasMore: false },
+          false
+        )
+      );
+  }
+
+  const userIds = new Set();
+
+  conversations.forEach((conv) => {
+    conv.participants.forEach((p) => {
+      if (String(p) !== String(myId)) userIds.add(String(p));
+    });
+    if (conv.lastMessageSender) {
+      userIds.add(String(conv.lastMessageSender));
+    }
+  });
+
+  const Users = await user
+    .find({ _id: { $in: Array.from(userIds) } })
+    .select("name firstName lastName profilePicture isOnline lastSeen role")
+    .lean();
+
+  const usersMap = {};
+  Users.forEach((u) => {
+    usersMap[String(u._id)] = u;
+  });
+
+  let totalUnreadCount = 0;
+
+  const result = conversations.map((conv) => {
     const otherUserId = conv.participants.find(
       (p) => String(p) !== String(myId)
     );
+    const otherUser = usersMap[String(otherUserId)] || null;
+    const sender = conv.lastMessageSender
+      ? usersMap[String(conv.lastMessageSender)] || null
+      : null;
 
-    const other = await user
-      .findById(otherUserId)
-      .select("firstName lastName name profilePicture isOnline lastSeen role")
-      .lean();
+    const unreadCount = conv.unreadCount?.[String(myId)] ?? 0;
+    totalUnreadCount += unreadCount;
 
-    result.push({
-      conversationId: conv._id,
-      otherUser: other,
-      unreadCount: conv.unreadCount?.[String(myId)] ?? 0,
+    const isSentByMe = String(conv.lastMessageSender) === String(myId);
+
+    let preview = conv.lastMessageText?.trim() || "";
+    if (preview && isSentByMe) preview = `You: ${preview}`;
+    if (!preview && conv.lastMessageType) {
+      preview =
+        conv.lastMessageType === "image"
+          ? "📷 Photo"
+          : conv.lastMessageType === "video"
+            ? "🎥 Video"
+            : conv.lastMessageType === "voice"
+              ? "🎤 Voice"
+              : "Message";
+    }
+
+    return {
+      conversationId: conv._id.toString(),
+      title:
+        conv.title ||
+        (otherUser
+          ? otherUser.name ||
+            `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() ||
+            "User"
+          : "Chat"),
+      otherUser: otherUser
+        ? {
+            id: otherUser._id.toString(),
+            name:
+              otherUser.name ||
+              `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim(),
+            profilePicture: otherUser.profilePicture,
+            isOnline: !!otherUser.isOnline,
+            lastSeen: otherUser.lastSeen,
+            role: otherUser.role,
+          }
+        : null,
+      unreadCount,
+      hasUnread: unreadCount > 0,
+      lastMessage: conv.lastMessageAt
+        ? {
+            id: conv.lastMessageId?.toString(),
+            preview,
+            type: conv.lastMessageType || "text",
+            sentAt: conv.lastMessageAt,
+            isSentByMe,
+            sender: sender
+              ? {
+                  id: sender._id.toString(),
+                  name: sender.name,
+                  avatar: sender.profilePicture,
+                }
+              : null,
+          }
+        : null,
+      property: conv.propertyId || null, // include property details
       lastMessageAt: conv.lastMessageAt,
-      lastMessage: {
-        _id: conv.lastMessageId,
-        text: conv.lastMessageText,
-        type: conv.lastMessageType,
-      },
-    });
-  }
+      updatedAt: conv.lastMessageAt,
+    };
+  });
 
-  return res
-    .status(200)
-    .json(
-      new apiSuccess(200, "Conversations retrieved successfully", result, false)
-    );
+  const hasMore = conversations.length === limit;
+
+  return res.status(200).json(
+    new apiSuccess(200, "Conversations retrieved", {
+      totalUnreadCount,
+      conversations: result,
+      pagination: { page, limit, hasMore },
+    })
+  );
 });
 
-// Cursor pagination:
-// GET /api/chat/messages/:otherUserId?cursor=<ISO_DATE>&limit=30
 const getChatMessages = asyncHandler(async (req, res, next) => {
   const decoded = await decodeSessionToken(req);
   const myId = decoded?.userData?.userId;

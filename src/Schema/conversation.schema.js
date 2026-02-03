@@ -1,19 +1,18 @@
 const mongoose = require("mongoose");
-const { Schema, model, models } = mongoose;
+
+const { model, models, Schema } = mongoose;
 
 const conversationSchema = new Schema(
   {
     participants: [
       { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
     ],
-
     participantsKey: {
       type: String,
       required: true,
       unique: true,
       index: true,
     },
-
     lastMessageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "message",
@@ -26,8 +25,14 @@ const conversationSchema = new Schema(
       default: "",
     },
     lastMessageAt: { type: Date, default: null, index: true },
-
     unreadCount: { type: Map, of: Number, default: {} },
+
+    propertyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "property",
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

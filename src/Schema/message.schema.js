@@ -15,6 +15,11 @@ const messageSchema = new Schema(
       required: true,
       index: true,
     },
+    propertyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Property",
+      index: true,
+    },
 
     message: { type: String, default: "" },
 

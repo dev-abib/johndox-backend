@@ -15,12 +15,7 @@ const PORT = process.env.PORT || 8000;
 
 app.set("trust proxy", 1);
 
-app.post(
-  `/webhook`,
-  express.raw({ type: "application/json" }),
-  stripeWebhook
-);
-
+app.post(`/webhook`, express.raw({ type: "application/json" }), stripeWebhook);
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -38,6 +33,7 @@ app.use(
       "http://103.161.9.205:5173",
       "https://johndox.vercel.app",
       "http://localhost:3001",
+      "http://103.161.9.205:3000",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
@@ -52,7 +48,6 @@ const limiter = rateLimit({
 app.use(limiter);
 
 app.use("/public", express.static("public"));
-
 
 app.use(allRoutes);
 
@@ -72,4 +67,4 @@ initSocket(server);
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server listening on port: http://localhost:${PORT}`);
 });
-// 
+//
