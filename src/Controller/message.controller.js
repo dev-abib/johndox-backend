@@ -37,7 +37,6 @@ const getLastMessageType = (text, fileType) => {
 const sendChatMessage = asyncHandler(async (req, res, next) => {
   const decoded = await decodeSessionToken(req);
   const senderId = decoded?.userData?.userId;
-
   const { receiverId } = req.params;
   const { message, propertyId } = req.body;
 
@@ -65,17 +64,14 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
 
   let fileUrl = "";
   let fileType = "";
-
   if (req.file) {
     fileType = detectFileType(req.file.mimetype);
-
     const folder =
       fileType === "image"
         ? "chat/media/images"
         : fileType === "video"
           ? "chat/media/videos"
           : "chat/media/pdfs";
-
     const result = await uploadCloudinary(req.file.buffer, folder, "auto");
     if (!result?.secure_url) {
       return next(
@@ -97,7 +93,6 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
 
   const key = buildParticipantsKey(senderId, receiverId);
   const now = new Date();
-
   const lastText =
     (message && message.trim()) ||
     (fileType === "image"
@@ -107,10 +102,8 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
         : fileType === "pdf"
           ? "📄 PDF"
           : "");
-
   const lastType = getLastMessageType(message, fileType);
 
-  // Update or create conversation
   const convUpdate = {
     $setOnInsert: {
       participants: [senderId, receiverId],
@@ -122,14 +115,10 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
       lastMessageType: lastType,
       lastMessageAt: now,
     },
-    $inc: {
-      [`unreadCount.${receiverId}`]: 1,
-    },
+    $inc: { [`unreadCount.${receiverId}`]: 1 },
   };
 
-  if (propertyId) {
-    convUpdate.$set.propertyId = propertyId; 
-  }
+  if (propertyId) convUpdate.$set.propertyId = propertyId;
 
   const conv = await Conversation.findOneAndUpdate(
     { participantsKey: key },
@@ -145,7 +134,6 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
   }
 
   const senderName = sender.firstName || sender.name || "User";
-
   const emitPayload = {
     _id: savedMessage._id,
     senderId: String(senderId),
@@ -160,16 +148,14 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
   };
 
   const io = getSocketInstance();
-
   const receiverSocket = await getUserSocket(String(receiverId));
+
   if (receiverSocket) {
     io.to(receiverSocket).emit("receive-message", emitPayload);
-
     await Message.findByIdAndUpdate(savedMessage._id, {
       status: "delivered",
       deliveredAt: new Date(),
     });
-
     const senderSocket = await getUserSocket(String(senderId));
     if (senderSocket) {
       io.to(senderSocket).emit("message-delivered", {
@@ -195,26 +181,17 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
 const getConversations = asyncHandler(async (req, res, next) => {
   const decoded = await decodeSessionToken(req);
   const myId = decoded?.userData?.userId;
-
-  if (!myId) {
-    return next(new apiError(401, "Unauthorized", null, false));
-  }
+  if (!myId) return next(new apiError(401, "Unauthorized", null, false));
 
   const page = parseInt(req.query.page) || 1;
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
   const skip = (page - 1) * limit;
 
-  // Fetch conversations
-  const conversations = await Conversation.find({
-    participants: myId,
-  })
+  const conversations = await Conversation.find({ participants: myId })
     .sort({ lastMessageAt: -1 })
     .skip(skip)
     .limit(limit)
-    .populate({
-      path: "propertyId",
-      select: "propertyName price location",
-    })
+    .populate({ path: "propertyId", select: "propertyName price location" })
     .lean();
 
   if (conversations.length === 0) {
@@ -231,14 +208,11 @@ const getConversations = asyncHandler(async (req, res, next) => {
   }
 
   const userIds = new Set();
-
   conversations.forEach((conv) => {
     conv.participants.forEach((p) => {
       if (String(p) !== String(myId)) userIds.add(String(p));
     });
-    if (conv.lastMessageSender) {
-      userIds.add(String(conv.lastMessageSender));
-    }
+    if (conv.lastMessageSender) userIds.add(String(conv.lastMessageSender));
   });
 
   const Users = await user
@@ -252,7 +226,6 @@ const getConversations = asyncHandler(async (req, res, next) => {
   });
 
   let totalUnreadCount = 0;
-
   const result = conversations.map((conv) => {
     const otherUserId = conv.participants.find(
       (p) => String(p) !== String(myId)
@@ -261,12 +234,9 @@ const getConversations = asyncHandler(async (req, res, next) => {
     const sender = conv.lastMessageSender
       ? usersMap[String(conv.lastMessageSender)] || null
       : null;
-
     const unreadCount = conv.unreadCount?.[String(myId)] ?? 0;
     totalUnreadCount += unreadCount;
-
     const isSentByMe = String(conv.lastMessageSender) === String(myId);
-
     let preview = conv.lastMessageText?.trim() || "";
     if (preview && isSentByMe) preview = `You: ${preview}`;
     if (!preview && conv.lastMessageType) {
@@ -279,7 +249,6 @@ const getConversations = asyncHandler(async (req, res, next) => {
               ? "🎤 Voice"
               : "Message";
     }
-
     return {
       conversationId: conv._id.toString(),
       title:
@@ -326,7 +295,6 @@ const getConversations = asyncHandler(async (req, res, next) => {
   });
 
   const hasMore = conversations.length === limit;
-
   return res.status(200).json(
     new apiSuccess(200, "Conversations retrieved", {
       totalUnreadCount,
@@ -336,110 +304,115 @@ const getConversations = asyncHandler(async (req, res, next) => {
   );
 });
 
-const getChatMessages = asyncHandler(async (req, res, next) => {
+const PAGE_SIZE = 30;
+
+const getChatMessages = asyncHandler(async (req, res) => {
   const decoded = await decodeSessionToken(req);
-  const myId = decoded?.userData?.userId || decoded?.userId;
+  const loggedInUserId = decoded?.userData?.userId;
+  const { chatUserId } = req.params;
 
-  if (!myId) {
-    return next(new apiError(401, "Unauthorized"));
+  if (
+    !mongoose.Types.ObjectId.isValid(loggedInUserId) ||
+    !mongoose.Types.ObjectId.isValid(chatUserId)
+  ) {
+    return res
+      .status(400)
+      .json({
+        status: 400,
+        message: "Invalid user id",
+        success: false,
+        error: null,
+      });
   }
 
-  const { otherUserId } = req.params;
-  if (!otherUserId) {
-    return next(new apiError(400, "Other user ID is required"));
-  }
-
-  if (myId.toString() === otherUserId.toString()) {
-    return next(new apiError(400, "Cannot chat with yourself"));
-  }
-
-  const limit = Number(req.query.limit) || 30;
-  const safeLimit = Math.min(Math.max(limit, 1), 100);
-
-  let cursorDate = null;
+  let cursor = null;
   if (req.query.cursor) {
     try {
-      cursorDate = new Date(req.query.cursor);
-      if (Number.isNaN(cursorDate.getTime())) {
-        cursorDate = null;
-      }
+      cursor = JSON.parse(req.query.cursor);
     } catch {
-      cursorDate = null;
+      return res
+        .status(400)
+        .json({
+          status: 400,
+          message: "Invalid cursor format",
+          success: false,
+          error: null,
+        });
     }
   }
 
-  const filter = {
+  const conversationQuery = {
     $or: [
-      { senderId: myId, receiverId: otherUserId },
-      { senderId: otherUserId, receiverId: myId },
+      { senderId: loggedInUserId, receiverId: chatUserId },
+      { senderId: chatUserId, receiverId: loggedInUserId },
     ],
   };
 
-  if (cursorDate) {
-    filter.createdAt = { $lt: cursorDate };
+  let paginationQuery = {};
+  if (cursor?.createdAt && cursor?._id) {
+    paginationQuery = {
+      $or: [
+        { createdAt: { $lt: new Date(cursor.createdAt) } },
+        {
+          createdAt: new Date(cursor.createdAt),
+          _id: { $lt: new mongoose.Types.ObjectId(cursor._id) },
+        },
+      ],
+    };
   }
 
-  // Fetch ONE MORE document to detect if there are older messages
-  const messagesRaw = await Message.find(filter)
+  const messages = await Message.find({
+    ...conversationQuery,
+    ...paginationQuery,
+  })
     .sort({ createdAt: -1, _id: -1 })
-    .limit(safeLimit + 1)
-    .populate({
-      path: "senderId",
-      select: "name firstName lastName profilePicture",
-    })
-    .lean();
+    .limit(PAGE_SIZE + 1)
+    .populate("senderId", "firstName lastName profilePicture");
 
-  const hasMore = messagesRaw.length > safeLimit;
-  const messages = hasMore ? messagesRaw.slice(0, safeLimit) : messagesRaw;
-
-  // Oldest message in the returned page (for next cursor)
-  const oldestInPage = messages[messages.length - 1];
-  const nextCursor = oldestInPage ? oldestInPage.createdAt.toISOString() : null;
-
-  // Reverse so frontend gets oldest → newest
-  messages.reverse();
+  let hasMore = false;
+  let nextCursor = null;
+  if (messages.length > PAGE_SIZE) {
+    hasMore = true;
+    const lastMessage = messages[PAGE_SIZE - 1];
+    nextCursor = { createdAt: lastMessage.createdAt, _id: lastMessage._id };
+    messages.length = PAGE_SIZE;
+  }
 
   const chatUser = await user
-    .findById(otherUserId)
-    .select("name firstName lastName profilePicture isOnline lastSeen role")
-    .lean();
-
+    .findById(chatUserId)
+    .select("firstName lastName profilePicture isOnline lastSeen role");
   if (!chatUser) {
-    return next(new apiError(404, "Chat user not found"));
+    return res
+      .status(404)
+      .json({
+        status: 404,
+        message: "Chat user not found",
+        success: false,
+        error: null,
+      });
   }
 
-
-  if (!cursorDate) {
-    await Message.updateMany(
-      {
-        senderId: otherUserId,
-        receiverId: myId,
-        read: { $ne: true },
-      },
-      { $set: { read: true, readAt: new Date() } }
-    ).catch(() => {}); 
-  }
-
-  return res.status(200).json(
-    new apiSuccess(200, "Messages retrieved successfully", {
+  return res.status(200).json({
+    status: 200,
+    message: "Messages retrieved successfully",
+    data: {
       chatUser: {
-        id: chatUser._id.toString(),
-        name:
-          chatUser.name ||
-          `${chatUser.firstName || ""} ${chatUser.lastName || ""}`.trim(),
+        id: chatUser._id,
+        name: `${chatUser.firstName} ${chatUser.lastName}`,
         profilePicture: chatUser.profilePicture,
-        isOnline: !!chatUser.isOnline,
+        isOnline: chatUser.isOnline,
         lastSeen: chatUser.lastSeen,
         role: chatUser.role,
       },
       messages,
       nextCursor,
-      hasMore, 
-    })
-  );
+      hasMore,
+    },
+    success: true,
+    error: null,
+  });
 });
 
-// PATCH /api/chat/seen/:otherUserId
 const markConversationSeen = asyncHandler(async (req, res, next) => {
   const decoded = await decodeSessionToken(req);
   const myId = decoded?.userData?.userId;

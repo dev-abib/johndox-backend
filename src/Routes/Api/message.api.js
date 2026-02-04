@@ -17,7 +17,7 @@ router.post(
 );
 
 router.get("/chat/conversations", authguard, getConversations);
-router.get("/chat/messages/:otherUserId", authguard, getChatMessages);
+router.get("/chat/messages/:chatUserId", authguard, getChatMessages);
 router.patch("/chat/seen/:otherUserId", authguard, markConversationSeen);
 
 module.exports = router;
