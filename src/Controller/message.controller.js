@@ -7,7 +7,7 @@ const { apiError } = require("../Utils/api.error");
 const { apiSuccess } = require("../Utils/api.success");
 const redis = require("../Utils/redis");
 const { getUserSocket } = require("../Utils/socketStore");
-const { getSocketInstance } = require("../Utils/socket");
+const { getSocketInstance, notifyNewMessage } = require("../Utils/socket");
 const { decodeSessionToken } = require("../Helpers/helper");
 const { uploadCloudinary } = require("../Helpers/uploadCloudinary");
 
@@ -27,41 +27,31 @@ const detectFileType = (mimetype) => {
   return "";
 };
 
-const getLastMessageType = (text, fileType) => {
-  if (text && fileType) return "mixed";
-  if (fileType) return fileType;
-  if (text) return "text";
-  return "";
-};
-
-const sendChatMessage = asyncHandler(async (req, res, next) => {
+const sendChatMessage = asyncHandler(async (req, res) => {
   const decoded = await decodeSessionToken(req);
   const senderId = decoded?.userData?.userId;
+
   const { receiverId } = req.params;
   const { message, propertyId } = req.body;
 
-  if (!senderId) return next(new apiError(401, "Unauthorized", null, false));
-  if (!receiverId)
-    return next(new apiError(400, "Receiver ID is required", null, false));
+  if (!senderId) throw new apiError(401, "Unauthorized");
+  if (!receiverId) throw new apiError(400, "Receiver ID is required");
   if (String(senderId) === String(receiverId))
-    return next(new apiError(400, "You cannot message yourself", null, false));
+    throw new apiError(400, "You cannot message yourself");
 
   const [sender, receiver] = await Promise.all([
-    user.findById(senderId),
-    user.findById(receiverId),
+    user.findById(senderId).select("firstName name"),
+    user.findById(receiverId).select("_id"),
   ]);
 
-  if (!sender)
-    return next(new apiError(404, "Sender doesn't exist", null, false));
-  if (!receiver)
-    return next(new apiError(404, "Receiver doesn't exist", null, false));
+  if (!sender) throw new apiError(404, "Sender doesn't exist");
+  if (!receiver) throw new apiError(404, "Receiver doesn't exist");
 
   if (!message && !req.file) {
-    return next(
-      new apiError(400, "Send at least a message or file", null, false)
-    );
+    throw new apiError(400, "Send at least a message or file");
   }
 
+  // Handle file upload
   let fileUrl = "";
   let fileType = "";
   if (req.file) {
@@ -72,15 +62,15 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
         : fileType === "video"
           ? "chat/media/videos"
           : "chat/media/pdfs";
+
     const result = await uploadCloudinary(req.file.buffer, folder, "auto");
     if (!result?.secure_url) {
-      return next(
-        new apiError(500, "Failed to upload attachment", null, false)
-      );
+      throw new apiError(500, "Failed to upload attachment");
     }
     fileUrl = result.secure_url;
   }
 
+  // Create message
   const savedMessage = await Message.create({
     senderId,
     receiverId,
@@ -91,10 +81,11 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
     propertyId: propertyId || null,
   });
 
-  const key = buildParticipantsKey(senderId, receiverId);
-  const now = new Date();
+  const participants = [senderId, receiverId].sort();
+  const participantsKey = participants.join("_");
+
   const lastText =
-    (message && message.trim()) ||
+    message?.trim() ||
     (fileType === "image"
       ? "📷 Photo"
       : fileType === "video"
@@ -102,74 +93,29 @@ const sendChatMessage = asyncHandler(async (req, res, next) => {
         : fileType === "pdf"
           ? "📄 PDF"
           : "");
-  const lastType = getLastMessageType(message, fileType);
 
-  const convUpdate = {
-    $setOnInsert: {
-      participants: [senderId, receiverId],
-      participantsKey: key,
+  const lastType = fileType || (message?.trim() ? "text" : "");
+
+  await Conversation.findOneAndUpdate(
+    { participantsKey },
+    {
+      $setOnInsert: {
+        participants: [senderId, receiverId],
+        participantsKey,
+      },
+      $set: {
+        lastMessageId: savedMessage._id,
+        lastMessageText: lastText,
+        lastMessageType: lastType,
+        lastMessageAt: savedMessage.createdAt,
+        propertyId: propertyId || undefined,
+      },
+      $inc: { [`unreadCount.${receiverId}`]: 1 },
     },
-    $set: {
-      lastMessageId: savedMessage._id,
-      lastMessageText: lastText,
-      lastMessageType: lastType,
-      lastMessageAt: now,
-    },
-    $inc: { [`unreadCount.${receiverId}`]: 1 },
-  };
-
-  if (propertyId) convUpdate.$set.propertyId = propertyId;
-
-  const conv = await Conversation.findOneAndUpdate(
-    { participantsKey: key },
-    convUpdate,
-    { new: true, upsert: true }
+    { upsert: true, new: true }
   );
 
-  if (conv?.unreadCount?.get(senderId) == null) {
-    await Conversation.updateOne(
-      { _id: conv._id },
-      { $set: { [`unreadCount.${senderId}`]: 0 } }
-    );
-  }
-
-  const senderName = sender.firstName || sender.name || "User";
-  const emitPayload = {
-    _id: savedMessage._id,
-    senderId: String(senderId),
-    receiverId: String(receiverId),
-    message: savedMessage.message,
-    fileUrl: savedMessage.fileUrl,
-    fileType: savedMessage.fileType,
-    status: savedMessage.status,
-    createdAt: savedMessage.createdAt,
-    senderName,
-    propertyId: savedMessage.propertyId || null,
-  };
-
-  const io = getSocketInstance();
-  const receiverSocket = await getUserSocket(String(receiverId));
-
-  if (receiverSocket) {
-    io.to(receiverSocket).emit("receive-message", emitPayload);
-    await Message.findByIdAndUpdate(savedMessage._id, {
-      status: "delivered",
-      deliveredAt: new Date(),
-    });
-    const senderSocket = await getUserSocket(String(senderId));
-    if (senderSocket) {
-      io.to(senderSocket).emit("message-delivered", {
-        messageId: savedMessage._id,
-      });
-    }
-  } else {
-    await redis.lpush(offlineListKey(receiverId), String(savedMessage._id));
-  }
-
-  const senderSocket = await getUserSocket(String(senderId));
-  if (senderSocket) {
-    io.to(senderSocket).emit("receive-message", emitPayload);
-  }
+  await notifyNewMessage(savedMessage);
 
   return res
     .status(200)
@@ -315,14 +261,12 @@ const getChatMessages = asyncHandler(async (req, res) => {
     !mongoose.Types.ObjectId.isValid(loggedInUserId) ||
     !mongoose.Types.ObjectId.isValid(chatUserId)
   ) {
-    return res
-      .status(400)
-      .json({
-        status: 400,
-        message: "Invalid user id",
-        success: false,
-        error: null,
-      });
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid user id",
+      success: false,
+      error: null,
+    });
   }
 
   let cursor = null;
@@ -330,14 +274,12 @@ const getChatMessages = asyncHandler(async (req, res) => {
     try {
       cursor = JSON.parse(req.query.cursor);
     } catch {
-      return res
-        .status(400)
-        .json({
-          status: 400,
-          message: "Invalid cursor format",
-          success: false,
-          error: null,
-        });
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid cursor format",
+        success: false,
+        error: null,
+      });
     }
   }
 
@@ -382,14 +324,12 @@ const getChatMessages = asyncHandler(async (req, res) => {
     .findById(chatUserId)
     .select("firstName lastName profilePicture isOnline lastSeen role");
   if (!chatUser) {
-    return res
-      .status(404)
-      .json({
-        status: 404,
-        message: "Chat user not found",
-        success: false,
-        error: null,
-      });
+    return res.status(404).json({
+      status: 404,
+      message: "Chat user not found",
+      success: false,
+      error: null,
+    });
   }
 
   return res.status(200).json({
