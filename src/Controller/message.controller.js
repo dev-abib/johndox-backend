@@ -108,6 +108,7 @@ const sendChatMessage = asyncHandler(async (req, res) => {
         lastMessageText: lastText,
         lastMessageType: lastType,
         lastMessageAt: savedMessage.createdAt,
+        lastMessageSender: senderId,
         propertyId: propertyId || undefined,
       },
       $inc: { [`unreadCount.${receiverId}`]: 1 },

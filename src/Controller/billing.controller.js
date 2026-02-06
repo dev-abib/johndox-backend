@@ -87,7 +87,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
       const stripeSubscription = await stripe.subscriptions.update(
         user.subscription.stripeSubscriptionId,
         {
-          cancel_at_period_end: true, // Cancel the current subscription at the end of the billing cycle
+          cancel_at_period_end: true, 
         }
       );
       console.log(
@@ -96,7 +96,7 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // Get the Price ID for the selected plan and billing cycle
+
   const priceId = getPriceIdForPlan(plan, billingCycle);
   if (!priceId)
     return next(new apiError(400, "Plan price not synced to Stripe"));
@@ -120,8 +120,8 @@ const createCheckoutSession = asyncHandler(async (req, res, next) => {
     mode: "subscription",
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL}/cancel?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${process.env.FRONTEND_URL}/seller/payment/success/?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.FRONTEND_URL}/seller/payment/error/?session_id={CHECKOUT_SESSION_ID}`,
     subscription_data:
       plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : undefined,
     metadata: {
@@ -155,7 +155,6 @@ const verifyCheckoutSession = asyncHandler(async (req, res, next) => {
     expand: ["subscription", "payment_intent"],
   });
 
-  // ✅ Ensure session belongs to this user
   const metaUserId = session.metadata?.userId;
   if (String(metaUserId) !== String(userId)) {
     return next(new apiError(403, "Forbidden (session mismatch)"));

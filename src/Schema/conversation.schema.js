@@ -25,6 +25,11 @@ const conversationSchema = new Schema(
       default: "",
     },
     lastMessageAt: { type: Date, default: null, index: true },
+    lastMessageSender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      default: null,
+    },
     unreadCount: { type: Map, of: Number, default: {} },
 
     propertyId: {
