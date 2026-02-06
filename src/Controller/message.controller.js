@@ -293,11 +293,21 @@ const getChatMessages = asyncHandler(async (req, res) => {
 
   let paginationQuery = {};
   if (cursor?.createdAt && cursor?._id) {
+    // Make sure createdAt is parsed as Date
+    const cursorDate = new Date(cursor.createdAt);
+    if (isNaN(cursorDate.getTime())) {
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid cursor date format",
+        success: false,
+      });
+    }
+
     paginationQuery = {
       $or: [
-        { createdAt: { $lt: new Date(cursor.createdAt) } },
+        { createdAt: { $lt: cursorDate } },
         {
-          createdAt: new Date(cursor.createdAt),
+          createdAt: cursorDate,
           _id: { $lt: new mongoose.Types.ObjectId(cursor._id) },
         },
       ],
