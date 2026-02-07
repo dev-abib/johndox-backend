@@ -722,6 +722,7 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
       name: `${existingUser?.firstName} ${existingUser?.lastName}`,
       email: existingUser?.email,
     },
+    emailAdress: existingUser?.email,
     subject: "Account Deletion Confirmation",
   });
 
@@ -989,7 +990,6 @@ const googleAuthController = asyncHandler(async (req, res, next) => {
   );
 });
 
-
 const upsertNotificationsPreference = asyncHandler(async (req, res, next) => {
   const {
     propertyAlert,
@@ -1079,7 +1079,6 @@ module.exports = {
   verifyOtp,
   resetPassword,
   updateUser,
-  deleteUserAccount,
   logoutUser,
   verifyAccount,
   resendOtp,
