@@ -34,18 +34,20 @@ app.use(
       "https://johndox.vercel.app",
       "http://localhost:3001",
       "http://103.161.9.205:3000",
+      "https://johndox.vercel.app",
+      "https://johndox-admin-dashboard.onrender.com",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
 );
 
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000,
-//   max: 100,
-//   message: "Too many requests from this IP, please try again later.",
-// });
-// app.use(limiter);
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "Too many requests from this IP, please try again later.",
+});
+app.use(limiter);
 
 app.use("/public", express.static("public"));
 
