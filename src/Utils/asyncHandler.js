@@ -9,7 +9,11 @@ const asyncHandler = (fun = () => {}) => {
       await fun(req, res, next);
     } catch (error) {
       console.log(error);
-      return next(new apiError(500, "External server error", null, false));
+      let errorMessage = error.message || errorMessage;
+      let errorDetails = error.stack || null;
+      return next(
+        new apiError(500, "External server error", errorDetails, false)
+      );
     }
   };
 };
