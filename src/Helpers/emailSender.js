@@ -11,35 +11,17 @@ const {
   AccountSelfDeletionTemplate,
   AccountVerificationStatusTemplate,
 } = require("./email.template");
-const { smtpSettings } = require("../Schema/smtp.settings.schema");
 
 const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
   try {
-    let smtpSetting = await smtpSettings.findOne();
-
-    if (!smtpSetting) {
-      console.warn(
-        "No SMTP settings found in database. Falling back to .env variables."
-      );
-      smtpSetting = {
-        mail_host: process.env.MAIL_HOST,
-        mail_port: process.env.MAIL_PORT,
-        mail_encryption: process.env.MAIL_ENCRYPTION,
-        mail_user_name: process.env.MAIL_USERNAME,
-        mail_password: process.env.MAIL_PASSWORD,
-        mail_from_name: process.env.MAIL_FROM_NAME,
-        mail_from_address: process.env.MAIL_FROM_ADDRESS,
-        super_admin_mail: process.env.SITE_OWNER_MAIL,
-      };
-    }
-
+    // Create the transporter using only .env values
     const transporter = nodemailer.createTransport({
-      host: smtpSetting.mail_host,
-      port: parseInt(smtpSetting.mail_port),
-      secure: smtpSetting.mail_encryption === "SSL",
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.MAIL_PORT),
+      secure: process.env.MAIL_ENCRYPTION === "SSL", // SSL or TLS based on your encryption
       auth: {
-        user: smtpSetting.mail_user_name,
-        pass: smtpSetting.mail_password,
+        user: process.env.MAIL_USERNAME,
+        pass: process.env.MAIL_PASSWORD,
       },
     });
 
@@ -113,11 +95,8 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
 
     // Prepare mail options
     const mailOptions = {
-      from: `"${smtpSetting.mail_from_name}" <${smtpSetting.mail_from_address}>`,
-      to:
-        emailAdress ||
-        smtpSetting.super_admin_mail ||
-        process.env.SITE_OWNER_MAIL,
+      from: `"${process.env.MAIL_FROM_NAME}" <${process.env.MAIL_FROM_ADDRESS}>`,
+      to: emailAdress || process.env.SITE_OWNER_MAIL,
       subject,
       html,
     };
