@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const nodemailer = require("nodemailer");
 const {
   PasswordResetTemplate,
@@ -14,20 +16,24 @@ const {
 
 const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
   try {
-    // Create the transporter using only .env values
+    // ── Resend SMTP with alternative port (bypasses common blocks) ────────
     const transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: parseInt(process.env.MAIL_PORT),
-      secure: process.env.MAIL_ENCRYPTION === "SSL", // SSL or TLS based on your encryption
+      host: "smtp.resend.com",
+      port: 2465, 
+      secure: true, 
       auth: {
-        user: process.env.MAIL_USERNAME,
-        pass: process.env.MAIL_PASSWORD,
+        user: "resend", 
+        pass: process.env.RESEND_API_KEY, 
       },
+
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
     });
 
     let html;
 
-    // Email template selection based on type
+    // Email template selection based on type (unchanged from your original)
     if (type === "otp") {
       html = PasswordResetTemplate(name, otp, emailAdress);
     }
@@ -37,6 +43,9 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
     }
 
     if (type === "request-tour") {
+      if (!data) {
+        throw new Error("Data is missing for 'request-tour'");
+      }
       html = RequestTourEmailTemplate({
         sellerName: data.sellerName,
         propertyName: data.propertyName,
@@ -49,6 +58,9 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
     }
 
     if (type === "contact") {
+      if (!data) {
+        throw new Error("Data is missing for 'contact'");
+      }
       html = ContactFormEmailTemplate({
         fullName: data?.fullName,
         email: data?.email,
@@ -60,6 +72,9 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
     }
 
     if (type === "admin-mail") {
+      if (!data) {
+        throw new Error("Data is missing for 'admin-mail'");
+      }
       html = UserMailTemplate({
         firstName: data?.firstName,
         lastName: data?.lastName,
@@ -70,22 +85,37 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
     }
 
     if (type === "account-banned") {
+      if (!data) {
+        throw new Error("Data is missing for 'account-banned'");
+      }
       html = AccountBannedTemplate(data?.name, data?.email, data?.reason);
     }
 
     if (type === "account-unbanned") {
+      if (!data) {
+        throw new Error("Data is missing for 'account-unbanned'");
+      }
       html = AccountUnbannedTemplate(data?.name, data?.email);
     }
 
     if (type === "account-delete") {
+      if (!data) {
+        throw new Error("Data is missing for 'account-delete'");
+      }
       html = AccountDeletedTemplate(data?.name, data?.email);
     }
 
     if (type === "account-delete-self") {
+      if (!data) {
+        throw new Error("Data is missing for 'account-delete-self'");
+      }
       html = AccountSelfDeletionTemplate(data?.name, data?.email);
     }
 
     if (type === "account-verification-status") {
+      if (!data) {
+        throw new Error("Data is missing for 'account-verification-status'");
+      }
       html = AccountVerificationStatusTemplate(
         data?.name,
         data?.email,
@@ -93,21 +123,26 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
       );
     }
 
+    // Safety check
+    if (!html) {
+      throw new Error(`Unsupported email type: ${type}`);
+    }
+
     // Prepare mail options
     const mailOptions = {
-      from: `"${process.env.MAIL_FROM_NAME}" <${process.env.MAIL_FROM_ADDRESS}>`,
+      from: `"${process.env.MAIL_FROM_NAME || "Your App Name"}" <${process.env.MAIL_FROM_ADDRESS || "onboarding@resend.dev"}>`,
       to: emailAdress || process.env.SITE_OWNER_MAIL,
       subject,
       html,
     };
 
-    // Send the email
     const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent successfully via Resend:", info.messageId);
     return info;
   } catch (error) {
     console.error(
       "Email sending failed:",
-      error || error.code || error.message
+      error.stack || error.message || error
     );
     throw error;
   }
