@@ -13,15 +13,19 @@ const { stripeWebhook } = require("./src/Controller/billing.controller.js");
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-app.set("trust proxy", 1);
 
+app.set("trust proxy", 1); 
+
+// Webhook for Stripe (raw body)
 app.post(`/webhook`, express.raw({ type: "application/json" }), stripeWebhook);
+
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 
 app.use(helmet());
+
 
 app.use(
   cors({
@@ -42,16 +46,20 @@ app.use(
   })
 );
 
+
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
   message: "Too many requests from this IP, please try again later.",
 });
 app.use(limiter);
 
+
 app.use("/public", express.static("public"));
 
+
 app.use(allRoutes);
+
 
 app.use((err, req, res, next) => {
   const statusCode = err.status || 500;
@@ -64,9 +72,9 @@ app.use((err, req, res, next) => {
 });
 
 const server = http.createServer(app);
+
 initSocket(server);
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server listening on port: http://localhost:${PORT}`);
 });
-//

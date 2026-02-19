@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config(); 
 
 const nodemailer = require("nodemailer");
 const {
@@ -16,24 +16,20 @@ const {
 
 const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
   try {
-    // ── Resend SMTP with alternative port (bypasses common blocks) ────────
     const transporter = nodemailer.createTransport({
-      host: "smtp.resend.com",
-      port: 2465, 
-      secure: true, 
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.MAIL_PORT),
+      secure: process.env.MAIL_ENCRYPTION === "SSL", 
       auth: {
-        user: "resend", 
-        pass: process.env.RESEND_API_KEY, 
+        user: process.env.MAIL_USERNAME,
+        pass: process.env.MAIL_PASSWORD,
       },
-
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 30000,
+      connectionTimeout: 10000, 
     });
 
     let html;
 
-    // Email template selection based on type (unchanged from your original)
+    // Email template selection based on type
     if (type === "otp") {
       html = PasswordResetTemplate(name, otp, emailAdress);
     }
@@ -123,28 +119,22 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
       );
     }
 
-    // Safety check
-    if (!html) {
-      throw new Error(`Unsupported email type: ${type}`);
-    }
-
     // Prepare mail options
     const mailOptions = {
-      from: `"${process.env.MAIL_FROM_NAME || "Your App Name"}" <${process.env.MAIL_FROM_ADDRESS || "onboarding@resend.dev"}>`,
+      from: `"${process.env.MAIL_FROM_NAME}" <${process.env.MAIL_FROM_ADDRESS}>`,
       to: emailAdress || process.env.SITE_OWNER_MAIL,
       subject,
       html,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent successfully via Resend:", info.messageId);
     return info;
   } catch (error) {
     console.error(
       "Email sending failed:",
       error.stack || error.message || error
     );
-    throw error;
+    throw error; 
   }
 };
 
