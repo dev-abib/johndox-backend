@@ -455,7 +455,6 @@ const getCompanyAddressData = asyncHandler(async (req, res, next) => {
 
 const updateSiteSettings = asyncHandler(async (req, res, next) => {
   const existingSettings = await siteSettingModel.findOne();
-
   const settings = existingSettings || (await siteSettingModel.create({}));
 
   // Handle the image uploads first
@@ -500,9 +499,8 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
 
   // Update regular fields
   for (const key of allowedFields) {
-    if (Object.prototype.hasOwnProperty.call(req.body, key)) {
-      const value = req.body[key];
-      settings[key] = value;
+    if (req.body[key]) {
+      settings[key] = req.body[key];
     }
   }
 
@@ -518,15 +516,14 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
   ];
 
   for (const social of socialLinks) {
-    if (Object.prototype.hasOwnProperty.call(req.body, social)) {
-      const value = req.body[social];
-      settings.socialLinks[social] = value || null;
+    if (req.body[social]) {
+      settings.socialLinks[social] = req.body[social] || null;
     }
   }
 
   // Geocode the address if provided
   const addressProvided =
-    Object.prototype.hasOwnProperty.call(req.body, "address") &&
+    req.body.address &&
     typeof req.body.address === "string" &&
     req.body.address.trim().length > 0;
 
@@ -536,45 +533,40 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
 
     const url = "https://us1.locationiq.com/v1/search";
 
-    const response = await axios.get(url, {
-      params: {
-        key,
-        q: req.body.address.trim(),
-        format: "json",
-        limit: 1,
-        addressdetails: 1,
-        normalizecity: 1,
-      },
-      timeout: 10000,
-    });
+    try {
+      const response = await axios.get(url, {
+        params: {
+          key,
+          q: req.body.address.trim(),
+          format: "json",
+          limit: 1,
+          addressdetails: 1,
+          normalizecity: 1,
+        },
+        timeout: 10000, // Timeout in 10 seconds
+      });
 
-    if (!response?.data?.length) {
-      return next(
-        new apiError(400, "Unable to geocode the provided address", null, false)
-      );
+      if (!response?.data?.length) {
+        return next(
+          new apiError(400, "Unable to geocode the provided address")
+        );
+      }
+
+      const lat = Number(response.data[0].lat);
+      const lng = Number(response.data[0].lon);
+
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        return next(
+          new apiError(400, "Invalid coordinates from geocoding service")
+        );
+      }
+
+      settings.location.geo.coordinates = [lng, lat];
+      settings.location.lat = lat;
+      settings.location.lng = lng;
+    } catch (error) {
+      return next(new apiError(500, "Error geocoding the address"));
     }
-
-    const lat = Number(response.data[0].lat);
-    const lng = Number(response.data[0].lon);
-
-    if (Number.isNaN(lat) || Number.isNaN(lng)) {
-      return next(
-        new apiError(
-          400,
-          "Invalid coordinates from geocoding service",
-          null,
-          false
-        )
-      );
-    }
-
-    settings.location ??= {};
-    settings.location.geo ??= { type: "Point", coordinates: [] };
-
-    settings.location.geo.type = "Point";
-    settings.location.geo.coordinates = [lng, lat];
-    settings.location.lat = lat;
-    settings.location.lng = lng;
   }
 
   await settings.save();
@@ -592,6 +584,7 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
       )
     );
 });
+
 
 const getSiteSettings = asyncHandler(async (req, res, next) => {
   const data = await siteSettingModel.findOne();

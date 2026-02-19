@@ -26,7 +26,7 @@ const siteSettingSchema = new Schema(
         },
         coordinates: {
           type: [Number],
-          default: undefined,
+          default: [], // Set default to empty array
         },
       },
       lat: { type: Number, default: undefined },
@@ -39,14 +39,16 @@ const siteSettingSchema = new Schema(
       x: String,
       youtube: String,
       whatsapp: String,
-      telegram: String, 
+      telegram: String,
     },
   },
   { timestamps: true }
 );
 
+// Create the geospatial index for location.geo
 siteSettingSchema.index({ "location.geo": "2dsphere" });
 
+// Ensure the model is only created once
 const siteSettingModel =
   models.siteSettings || model("siteSettings", siteSettingSchema);
 
