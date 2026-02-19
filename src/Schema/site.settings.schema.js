@@ -17,21 +17,6 @@ const siteSettingSchema = new Schema(
     infoNumber: { type: String },
     infoMsg: { type: String },
     infCompany: { type: String },
-    location: {
-      geo: {
-        type: {
-          type: String,
-          enum: ["Point"],
-          default: "Point",
-        },
-        coordinates: {
-          type: [Number],
-          default: [], // Set default to empty array
-        },
-      },
-      lat: { type: Number, default: undefined },
-      lng: { type: Number, default: undefined },
-    },
     socialLinks: {
       facebook: String,
       instagram: String,

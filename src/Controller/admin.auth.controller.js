@@ -521,54 +521,6 @@ const updateSiteSettings = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // Geocode the address if provided
-  const addressProvided =
-    req.body.address &&
-    typeof req.body.address === "string" &&
-    req.body.address.trim().length > 0;
-
-  if (addressProvided) {
-    const key = process.env.LOCATIONIQ_KEY;
-    if (!key) return next(new apiError(500, "No Location key provided"));
-
-    const url = "https://us1.locationiq.com/v1/search";
-
-    try {
-      const response = await axios.get(url, {
-        params: {
-          key,
-          q: req.body.address.trim(),
-          format: "json",
-          limit: 1,
-          addressdetails: 1,
-          normalizecity: 1,
-        },
-        timeout: 10000, // Timeout in 10 seconds
-      });
-
-      if (!response?.data?.length) {
-        return next(
-          new apiError(400, "Unable to geocode the provided address")
-        );
-      }
-
-      const lat = Number(response.data[0].lat);
-      const lng = Number(response.data[0].lon);
-
-      if (Number.isNaN(lat) || Number.isNaN(lng)) {
-        return next(
-          new apiError(400, "Invalid coordinates from geocoding service")
-        );
-      }
-
-      settings.location.geo.coordinates = [lng, lat];
-      settings.location.lat = lat;
-      settings.location.lng = lng;
-    } catch (error) {
-      return next(new apiError(500, "Error geocoding the address"));
-    }
-  }
-
   await settings.save();
 
   return res
@@ -608,7 +560,7 @@ const adminDeleteUser = asyncHandler(async (req, res, next) => {
   if (!adminId)
     return next(new apiError(403, "Forbidden: Admin only", null, false));
 
-  const { userId } = req.params; // The user to delete
+  const { userId } = req.params; 
   const isExistedUser = await user.findById(userId);
   if (!isExistedUser)
     return next(new apiError(404, "User not found", null, false));
