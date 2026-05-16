@@ -45,6 +45,8 @@ app.use(
       "https://admin.terralink.lat",
       "http://terralink.lat",
       "http://admin.terralink.lat",
+      "https://www.terralink.lat",
+      "https://terralink.lat",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
