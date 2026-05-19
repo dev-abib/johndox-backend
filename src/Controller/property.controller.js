@@ -226,8 +226,7 @@ const addProperty = asyncHandler(async (req, res, next) => {
   )
     .map((a) => String(a).trim())
     .filter(Boolean);
-  
-  
+
   if (normalizedAmenities.length > 0) {
     const validAmenities = await Amenity.find({
       name: {
@@ -252,7 +251,6 @@ const addProperty = asyncHandler(async (req, res, next) => {
       );
     }
   }
-
 
   const media = [];
 
@@ -605,7 +603,6 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     );
 });
 
-
 const getMyProperty = asyncHandler(async (req, res, next) => {
   const decodedData = await decodeSessionToken(req);
 
@@ -844,7 +841,6 @@ const getAllProperties = asyncHandler(async (req, res, next) => {
     filter.bedrooms = { $gte: mb };
   }
 
- 
   if (
     req.query.bathrooms !== undefined &&
     String(req.query.bathrooms).trim() !== ""
@@ -1106,7 +1102,7 @@ const requestATour = asyncHandler(async (req, res, next) => {
     type: "request-tour",
     subject: "A Buyer Wants to Tour Your Property",
     data,
-    emailAdress: isExistedProperty.author.email,
+    emailAddress: isExistedProperty.author.email,
   });
 
   if (!isMailSent) {

@@ -1,4 +1,4 @@
-require("dotenv").config(); 
+require("dotenv").config();
 
 const nodemailer = require("nodemailer");
 const {
@@ -14,28 +14,28 @@ const {
   AccountVerificationStatusTemplate,
 } = require("./email.template");
 
-const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
+const mailSender = async ({ type, name, emailAddress, subject, otp, data }) => {
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.MAIL_HOST,
       port: parseInt(process.env.MAIL_PORT),
-      secure: process.env.MAIL_ENCRYPTION === "SSL", 
+      secure: process.env.MAIL_ENCRYPTION === "SSL",
       auth: {
         user: process.env.MAIL_USERNAME,
         pass: process.env.MAIL_PASSWORD,
       },
-      connectionTimeout: 10000, 
+      connectionTimeout: 10000,
     });
 
     let html;
 
     // Email template selection based on type
     if (type === "otp") {
-      html = PasswordResetTemplate(name, otp, emailAdress);
+      html = PasswordResetTemplate(name, otp, emailAddress);
     }
 
     if (type === "verify-account") {
-      html = AccountVerificationTemplate(name, otp, emailAdress);
+      html = AccountVerificationTemplate(name, otp, emailAddress);
     }
 
     if (type === "request-tour") {
@@ -122,7 +122,7 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
     // Prepare mail options
     const mailOptions = {
       from: `"${process.env.MAIL_FROM_NAME}" <${process.env.MAIL_FROM_ADDRESS}>`,
-      to: emailAdress || process.env.SITE_OWNER_MAIL,
+      to: emailAddress || process.env.SITE_OWNER_MAIL,
       subject,
       html,
     };
@@ -134,7 +134,7 @@ const mailSender = async ({ type, name, emailAdress, subject, otp, data }) => {
       "Email sending failed:",
       error.stack || error.message || error
     );
-    throw error; 
+    throw error;
   }
 };
 

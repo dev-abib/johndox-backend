@@ -156,7 +156,7 @@ const registerUserController = asyncHandler(async (req, res, next) => {
   const isMailSend = await mailSender({
     type: "verify-account",
     name: savedUser.firstName || "User",
-    emailAdress: email,
+    emailAddress: email,
     subject: "Your One-Time Password (OTP)",
     otp,
   });
@@ -413,7 +413,7 @@ const verifyEmail = asyncHandler(async (req, res, next) => {
     await mailSender({
       type: "otp",
       name: isExisteduser.firstName || "User",
-      emailAdress: email,
+      emailAddress: email,
       subject: "Your One-Time Password (OTP)",
       otp: otp,
     });
@@ -473,7 +473,7 @@ const resendOtp = asyncHandler(async (req, res, next) => {
     await mailSender({
       type: "otp",
       name: isExisteduser.firstName || "User",
-      emailAdress: email,
+      emailAddress: email,
       subject: "Your New One-Time Password (OTP)",
       otp,
     });
@@ -722,7 +722,7 @@ const deleteUserAccount = asyncHandler(async (req, res, next) => {
       name: `${existingUser?.firstName} ${existingUser?.lastName}`,
       email: existingUser?.email,
     },
-    emailAdress: existingUser?.email,
+    emailAddress: existingUser?.email,
     subject: "Account Deletion Confirmation",
   });
 

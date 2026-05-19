@@ -370,10 +370,10 @@ const verifyUserAccount = asyncHandler(async (req, res, next) => {
 
   await mailSender({
     type: "account-verification-status",
-    emailAddress: User.email,
+    emailAddress: User?.email,
     data: {
       name: `${User.firstName}${User.lastName}`,
-      email: User.email,
+      email: User?.email,
       isVerified,
     },
     subject: `Your Account Has Been ${isVerified ? "Verified" : "Unverified"}`,
@@ -495,7 +495,7 @@ const sendMailToUser = asyncHandler(async (req, res, next) => {
 
   const isMailSent = await mailSender({
     type: "admin-mail",
-    emailAdress: email,
+    emailAddress: email,
     data: { email, subject, firstName, lastName, message },
     subject: subject,
   });
@@ -518,13 +518,14 @@ const banUnbannedUser = asyncHandler(async (req, res, next) => {
   const BannedUser = User.isBanned;
 
   const { email } = User;
+
   if (BannedUser) {
     User.isBanned = false;
     await User.save();
 
     const isMailSent = await mailSender({
       type: "account-unbanned",
-      emailAdress: email,
+      emailAddress: email,
       data: {
         name: `${User?.firstName} ${User?.lastName}`,
         email: email,
@@ -551,7 +552,7 @@ const banUnbannedUser = asyncHandler(async (req, res, next) => {
 
     const isMailSent = await mailSender({
       type: "account-banned",
-      emailAdress: email,
+      emailAddress: email,
       data: {
         name: `${User?.firstName} ${User?.lastName}`,
         email: email,
