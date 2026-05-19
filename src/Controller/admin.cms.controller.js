@@ -517,16 +517,17 @@ const banUnbannedUser = asyncHandler(async (req, res, next) => {
 
   const BannedUser = User.isBanned;
 
+  const { email } = User;
   if (BannedUser) {
     User.isBanned = false;
     await User.save();
 
     const isMailSent = await mailSender({
       type: "account-unbanned",
-      emailAdress: User?.email,
+      emailAdress: email,
       data: {
         name: `${User?.firstName} ${User?.lastName}`,
-        email: User?.email,
+        email: email,
       },
       subject: `Account re activation confirmation`,
     });
@@ -550,10 +551,10 @@ const banUnbannedUser = asyncHandler(async (req, res, next) => {
 
     const isMailSent = await mailSender({
       type: "account-banned",
-      emailAdress: User?.email,
+      emailAdress: email,
       data: {
         name: `${User?.firstName} ${User?.lastName}`,
-        email: User?.email,
+        email: email,
       },
       subject: `Terms and privacy Policy violation`,
     });
