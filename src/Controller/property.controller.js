@@ -138,10 +138,6 @@ const addProperty = asyncHandler(async (req, res, next) => {
       ? [files.video]
       : [];
 
-  if (!videoFiles.length) {
-    return next(new apiError(400, "Please include the video with the request"));
-  }
-
   if (videoFiles.length > 1) {
     return next(new apiError(400, "You can add only one video"));
   }
