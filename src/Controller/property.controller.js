@@ -1980,19 +1980,28 @@ const loanEstimator = asyncHandler(async (req, res, next) => {
   const loanTermsYears = parseInt(loan_terms_years);
   const interestRate = parseFloat(interest_rate);
 
-  if (
-    !Number.isFinite(assetPrice) ||
-    assetPrice <= 0 ||
-    !Number.isFinite(downPayment) ||
-    downPayment < 0 ||
-    !Number.isInteger(loanTermsYears) ||
-    loanTermsYears <= 0 ||
-    !Number.isFinite(interestRate) ||
-    interestRate < 0
-  ) {
-    return res.status(400).json({
-      error: "All fields are required and must be valid positive numbers",
-    });
+  if (!Number.isFinite(assetPrice) || assetPrice <= 0) {
+    return res
+      .status(400)
+      .json({ error: "Asset price must be a valid positive number" });
+  }
+
+  if (!Number.isFinite(downPayment) || downPayment < 0) {
+    return res
+      .status(400)
+      .json({ error: "Down payment must be a valid non-negative number" });
+  }
+
+  if (!Number.isInteger(loanTermsYears) || loanTermsYears <= 0) {
+    return res
+      .status(400)
+      .json({ error: "Loan term must be a whole number of at least 1 year" });
+  }
+
+  if (!Number.isFinite(interestRate) || interestRate < 0) {
+    return res
+      .status(400)
+      .json({ error: "Interest rate must be a valid non-negative number" });
   }
 
   if (downPayment >= assetPrice) {
