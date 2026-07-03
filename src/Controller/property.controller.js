@@ -6,7 +6,7 @@ const {
   uploadCloudinary,
   deleteCloudinaryAsset,
 } = require("../Helpers/uploadCloudinary");
-const { decodeSessionToken, geocodeAddress } = require("../Helpers/helper");
+const { decodeSessionToken } = require("../Helpers/helper");
 const { user } = require("../Schema/user.schema");
 const { mailSender } = require("../Helpers/emailSender");
 const { savedSearch } = require("../Schema/property.searched.schema");
@@ -54,6 +54,8 @@ const addProperty = asyncHandler(async (req, res, next) => {
     areaInSqMeter,
     amenities,
     category,
+    lat,
+    lng,
   } = req.body;
 
   const addressString = `${fullAddress}, ${city}, ${state}`;
@@ -61,72 +63,19 @@ const addProperty = asyncHandler(async (req, res, next) => {
     return next(new apiError(400, "Invalid address provided", null, false));
   }
 
-  const key = process.env.LOCATIONIQ_KEY;
-  if (!key) return next(new apiError(500, "No Location key provided"));
+  // Validate lat and lng from frontend
+  const latitude = Number(lat);
+  const longitude = Number(lng);
 
-  const url = "https://us1.locationiq.com/v1/search";
-
-  const response = await axios
-    .get(url, {
-      params: {
-        key,
-        q: fullAddress,
-        format: "json",
-        limit: 1,
-        addressdetails: 1,
-        normalizecity: 1,
-      },
-      timeout: 10000,
-    })
-    .catch((error) => {
-      if (error.response) {
-        return next(
-          new apiError(
-            error.response.status,
-            `${error.response.data.error} address` ||
-              "Geocoding request failed.",
-            null,
-            false
-          )
-        );
-      } else if (error.request) {
-        return next(
-          new apiError(
-            500,
-            "Network error or no response from the geocoding service.",
-            null,
-            false
-          )
-        );
-      } else {
-        return next(
-          new apiError(
-            500,
-            error.message || "An unknown error occurred during geocoding.",
-            null,
-            false
-          )
-        );
-      }
-    });
-
-  if (!response?.data || response.data.length === 0) {
+  if (isNaN(latitude) || isNaN(longitude)) {
     return next(
-      new apiError(400, "Unable to geocode the provided address", null, false)
+      new apiError(400, "Valid latitude and longitude are required", null, false)
     );
   }
 
-  const lat = Number(response.data[0].lat);
-  const lng = Number(response.data[0].lon);
-
-  // Validate lat and lng
-  if (!lat || !lng) {
-    return next(new apiError(401, "Address not found."));
-  }
-
-  if (!lat || !lng) {
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
     return next(
-      new apiError(400, "Unable to geocode the provided address", null, false)
+      new apiError(400, "Latitude must be between -90 and 90, longitude between -180 and 180", null, false)
     );
   }
 
@@ -310,10 +259,10 @@ const addProperty = asyncHandler(async (req, res, next) => {
     location: {
       geo: {
         type: "Point",
-        coordinates: [lng, lat],
+        coordinates: [longitude, latitude],
       },
-      lat,
-      lng,
+      lat: latitude,
+      lng: longitude,
     },
     author: decodedData?.userData?.userId,
   });
@@ -381,6 +330,8 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     areaInSqMeter,
     amenities,
     category,
+    lat,
+    lng,
     deleteImages = [],
   } = req.body;
 
@@ -512,55 +463,23 @@ const updateProperty = asyncHandler(async (req, res, next) => {
     );
   }
 
-  /* ===============================
-     ADDRESS CHANGE DETECTION
-  =============================== */
+  if (req.body.lat !== undefined && req.body.lng !== undefined) {
+    lat = Number(req.body.lat);
+    lng = Number(req.body.lng);
 
-  const shouldUpdateLocation =
-    (fullAddress && fullAddress !== property.fullAddress) ||
-    (city && city !== property.city) ||
-    (state && state !== property.state);
-
-  let lat;
-  let lng;
-
-  if (shouldUpdateLocation) {
-    const addressString = `${fullAddress || property.fullAddress}, ${
-      city || property.city
-    }, ${state || property.state}`;
-
-    const key = process.env.LOCATIONIQ_KEY;
-    if (!key) return next(new apiError(500, "No Location key provided"));
-
-    const response = await axios.get("https://us1.locationiq.com/v1/search", {
-      params: {
-        key,
-        q: addressString,
-        format: "json",
-        limit: 1,
-      },
-      timeout: 10000,
-    });
-
-    if (!response?.data?.length) {
+    if (isNaN(lat) || isNaN(lng)) {
       return next(
-        new apiError(400, "Unable to geocode the provided address", null, false)
+        new apiError(400, "Valid latitude and longitude are required", null, false)
       );
     }
 
-    lat = Number(response.data[0].lat);
-    lng = Number(response.data[0].lon);
-
-    if (!lat || !lng) {
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return next(
-        new apiError(400, "Invalid coordinates from geocoding", null, false)
+        new apiError(400, "Latitude must be between -90 and 90, longitude between -180 and 180", null, false)
       );
     }
   }
 
-  /* ===============================
-     UPDATE PROPERTY FIELDS
-  =============================== */
 
   property.propertyName = propertyName || property.propertyName;
   property.description = description || property.description;
