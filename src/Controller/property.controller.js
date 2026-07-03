@@ -1975,19 +1975,34 @@ const loanEstimator = asyncHandler(async (req, res, next) => {
   const { asset_price, down_payment, loan_terms_years, interest_rate } =
     req.body;
 
-  if (!asset_price || !down_payment || !loan_terms_years || !interest_rate) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
-
   const assetPrice = parseFloat(asset_price);
   const downPayment = parseFloat(down_payment);
   const loanTermsYears = parseInt(loan_terms_years);
   const interestRate = parseFloat(interest_rate);
 
+  if (
+    !Number.isFinite(assetPrice) ||
+    assetPrice <= 0 ||
+    !Number.isFinite(downPayment) ||
+    downPayment < 0 ||
+    !Number.isInteger(loanTermsYears) ||
+    loanTermsYears <= 0 ||
+    !Number.isFinite(interestRate) ||
+    interestRate < 0
+  ) {
+    return res.status(400).json({
+      error: "All fields are required and must be valid positive numbers",
+    });
+  }
+
+  if (downPayment >= assetPrice) {
+    return res
+      .status(400)
+      .json({ error: "Down payment must be less than asset price" });
+  }
+
   const loanAmount = assetPrice - downPayment;
-
   const monthlyInterestRate = interestRate / 100 / 12;
-
   const numberOfPayments = loanTermsYears * 12;
 
   let monthlyPayment = 0;
