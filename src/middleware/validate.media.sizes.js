@@ -15,7 +15,7 @@ const validateMediaSizes = (req, res, next) => {
       return next(
         new apiError(
           400,
-          `Image "${file.originalname}" exceeds 5MB limit`,
+          `Image "${file.originalname}" exceeds 20MB limit`,
           null,
           false
         )
