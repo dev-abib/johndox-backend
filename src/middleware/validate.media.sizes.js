@@ -11,7 +11,7 @@ const validateMediaSizes = (req, res, next) => {
     const mimetype = file.mimetype.toLowerCase();
 
     // image rule
-    if (mimetype.startsWith("image/") && sizeMB > 5) {
+    if (mimetype.startsWith("image/") && sizeMB > 20) {
       return next(
         new apiError(
           400,
